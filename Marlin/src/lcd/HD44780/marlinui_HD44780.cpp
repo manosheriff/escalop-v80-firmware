@@ -112,6 +112,11 @@
 
 #endif
 
+// Escaloplab animated boot logo (needs a 20x4 display)
+#if ALL(SHOW_BOOTSCREEN, ESCALOPLAB_BOOTSCREEN) && LCD_WIDTH >= 20 && LCD_HEIGHT >= 4
+  #define ESCALOPLAB_LOGO 1
+#endif
+
 static void createChar_P(const char c, const byte * const ptr) {
   byte temp[8];
   for (uint8_t i = 0; i < 8; ++i)
@@ -137,7 +142,47 @@ void MarlinUI::set_custom_characters(const HD44780CharSet screen_charset/*=CHARS
   #endif
 
   // CHARSET_BOOT
-  #if ENABLED(SHOW_BOOTSCREEN)
+  #if ENABLED(ESCALOPLAB_LOGO)
+    // Escaloplab chevron "neon tube" glyphs. One chevron = left + right cell.
+    //  0/1 = unlit (thin outline), 2/3 = lit (thick tube)
+    const static PROGMEM byte corner[4][8] = { {
+      B00001,
+      B00010,
+      B00010,
+      B00100,
+      B01000,
+      B01000,
+      B10000,
+      B00000
+    }, {
+      B10000,
+      B01000,
+      B01000,
+      B00100,
+      B00010,
+      B00010,
+      B00001,
+      B00000
+    }, {
+      B00001,
+      B00011,
+      B00111,
+      B01110,
+      B11100,
+      B11000,
+      B10000,
+      B00000
+    }, {
+      B10000,
+      B11000,
+      B11100,
+      B01110,
+      B00111,
+      B00011,
+      B00001,
+      B00000
+    } };
+  #elif ENABLED(SHOW_BOOTSCREEN)
     const static PROGMEM byte corner[4][8] = { {
       B00000,
       B00000,
@@ -442,12 +487,89 @@ void MarlinUI::clear_lcd() { lcd.clear(); }
     }
   }
 
+  #if DISABLED(ESCALOPLAB_LOGO)
   static void logo_lines(FSTR_P const extra) {
     int16_t indent = (LCD_WIDTH - 8 - utf8_strlen(extra)) / 2;
     lcd_put_lchar(indent, 0, '\x00'); lcd_put_u8str(F( "------" )); lcd_put_u8str(F("\x01"));
     lcd_put_u8str(indent, 1, F("|Marlin|")); lcd_put_u8str(extra);
     lcd_put_lchar(indent, 2, '\x02'); lcd_put_u8str(F( "------" )); lcd_put_u8str(F("\x03"));
   }
+  #endif
+
+  #if ENABLED(ESCALOPLAB_LOGO)
+
+    //
+    // Escaloplab boot screen
+    //
+    //   +--------------------+
+    //   | /\   ESCALOPLAB    |   three stacked chevrons, lit bottom -> top
+    //   | /\   3D PRINTERS   |   like layers rising on the bed
+    //   | /\   FIRMWARE V1.0 |
+    //   |   escaloplab.com   |
+    //   +--------------------+
+    //
+    #define ESC_LOGO_COL 1    // left cell of each chevron
+    #define ESC_TEXT_COL 6    // where the text column starts
+
+    static void esc_chevron(const uint8_t row, const bool lit) {
+      lcd_put_lchar(ESC_LOGO_COL,     row, lchar_t(lit ? 2 : 0));
+      lcd_put_lchar(ESC_LOGO_COL + 1, row, lchar_t(lit ? 3 : 1));
+    }
+
+    static void esc_chevrons(const bool lit) {
+      for (uint8_t r = 0; r < 3; ++r) esc_chevron(r, lit);
+    }
+
+    // "Type" an ASCII PROGMEM string one character at a time
+    static void esc_type(const lcd_uint_t col, const lcd_uint_t row, FSTR_P const fstr, const uint16_t ms) {
+      PGM_P p = FTOP(fstr);
+      for (uint8_t i = 0; char c = pgm_read_byte(&p[i]); ++i) {
+        lcd_put_lchar(col + i, row, lchar_t(c));
+        safe_delay(ms);
+      }
+    }
+
+    static void esc_center(const lcd_uint_t row, FSTR_P const fstr) {
+      lcd_erase_line(row);
+      const uint8_t len = utf8_strlen(fstr);
+      lcd_put_u8str(len < LCD_WIDTH ? (LCD_WIDTH - len) / 2 : 0, row, fstr);
+    }
+
+    void MarlinUI::show_bootscreen() {
+      set_custom_characters(CHARSET_BOOT);
+      lcd.clear();
+
+      // 1. Unlit outline of the logo
+      esc_chevrons(false);
+      safe_delay(350);
+
+      // 2. Chevrons light up from the bottom one to the top one
+      for (int8_t r = 2; r >= 0; --r) { esc_chevron(r, true); safe_delay(230); }
+
+      // 3. Wordmark: ESCALOP ... LAB
+      esc_type(ESC_TEXT_COL, 0, F("ESCALOP"), 55);
+      safe_delay(150);
+      esc_type(ESC_TEXT_COL + 7, 0, F("LAB"), 55);
+
+      // 4. Neon flicker
+      safe_delay(200);
+      esc_chevrons(false); safe_delay(60);
+      esc_chevrons(true);  safe_delay(120);
+      esc_chevrons(false); safe_delay(45);
+      esc_chevrons(true);
+
+      // 5. Tagline, firmware version, website
+      lcd_put_u8str(ESC_TEXT_COL, 1, F("3D PRINTERS"));
+      lcd_put_u8str(ESC_TEXT_COL, 2, F("FIRMWARE V" ESCALOPLAB_FW_VERSION));
+      esc_center(3, F(WEBSITE_URL));
+      safe_delay(1600);
+
+      // 6. Credit to the firmware we're built on
+      esc_center(3, F("Powered by Marlin"));
+      safe_delay(900);
+    }
+
+  #else // !ESCALOPLAB_LOGO
 
   void MarlinUI::show_bootscreen() {
     set_custom_characters(CHARSET_BOOT);
@@ -489,6 +611,8 @@ void MarlinUI::clear_lcd() { lcd.clear(); }
       #endif
     }
   }
+
+  #endif // !ESCALOPLAB_LOGO
 
   void MarlinUI::bootscreen_completion(const millis_t) {
     lcd.clear();
