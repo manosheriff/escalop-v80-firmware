@@ -434,7 +434,8 @@ inline void manage_inactivity(const bool no_stepper_sleep=false) {
 
       static bool already_shutdown_steppers; // = false
 
-      if (!has_blocks && !do_reset_timeout && gcode.stepper_inactive_timeout()) {
+      // Escaloplab: with ESCALOPLAB_QUIET_IDLE the (short) timeout never fires during a print job
+      if (!has_blocks && !do_reset_timeout && TERN1(ESCALOPLAB_QUIET_IDLE, !printJobOngoing()) && gcode.stepper_inactive_timeout()) {
         if (!already_shutdown_steppers) {
           already_shutdown_steppers = true;
 

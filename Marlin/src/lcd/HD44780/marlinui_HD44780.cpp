@@ -117,6 +117,13 @@
   #define ESCALOPLAB_LOGO 1
 #endif
 
+// Escaloplab status screen (20x4, one hotend + heated bed)
+#if ENABLED(ESCALOPLAB_STATUS_SCREEN) && LCD_WIDTH >= 20 && LCD_HEIGHT >= 4 && HOTENDS == 1 && HAS_HEATED_BED && DISABLED(LCD_PROGRESS_BAR)
+  #define ESCALOPLAB_STATUS 1
+  #include "../../MarlinCore.h"
+  static void esc_status_glyphs_reset();
+#endif
+
 static void createChar_P(const char c, const byte * const ptr) {
   byte temp[8];
   for (uint8_t i = 0; i < 8; ++i)
@@ -142,47 +149,7 @@ void MarlinUI::set_custom_characters(const HD44780CharSet screen_charset/*=CHARS
   #endif
 
   // CHARSET_BOOT
-  #if ENABLED(ESCALOPLAB_LOGO)
-    // Escaloplab chevron "neon tube" glyphs. One chevron = left + right cell.
-    //  0/1 = unlit (thin outline), 2/3 = lit (thick tube)
-    const static PROGMEM byte corner[4][8] = { {
-      B00001,
-      B00010,
-      B00010,
-      B00100,
-      B01000,
-      B01000,
-      B10000,
-      B00000
-    }, {
-      B10000,
-      B01000,
-      B01000,
-      B00100,
-      B00010,
-      B00010,
-      B00001,
-      B00000
-    }, {
-      B00001,
-      B00011,
-      B00111,
-      B01110,
-      B11100,
-      B11000,
-      B10000,
-      B00000
-    }, {
-      B10000,
-      B11000,
-      B11100,
-      B01110,
-      B00111,
-      B00011,
-      B00001,
-      B00000
-    } };
-  #elif ENABLED(SHOW_BOOTSCREEN)
+  #if ENABLED(SHOW_BOOTSCREEN)
     const static PROGMEM byte corner[4][8] = { {
       B00000,
       B00000,
@@ -224,14 +191,25 @@ void MarlinUI::set_custom_characters(const HD44780CharSet screen_charset/*=CHARS
 
   // CHARSET_INFO
   const static PROGMEM byte bedTemp[8] = {
-    B00000,
-    B11111,
-    B10101,
-    B10001,
-    B10101,
-    B11111,
-    B00000,
-    B00000
+    #if ENABLED(ESCALOPLAB_STATUS)  // Print bed (heat waves are animated on the status screen)
+      B00000,
+      B00000,
+      B00000,
+      B00000,
+      B11111,
+      B11111,
+      B10001,
+      B00000
+    #else
+      B00000,
+      B11111,
+      B10101,
+      B10001,
+      B10101,
+      B11111,
+      B00000,
+      B00000
+    #endif
   };
 
   const static PROGMEM byte degree[8] = {
@@ -246,14 +224,25 @@ void MarlinUI::set_custom_characters(const HD44780CharSet screen_charset/*=CHARS
   };
 
   const static PROGMEM byte thermometer[8] = {
-    B00100,
-    B01010,
-    B01010,
-    B01010,
-    B01010,
-    B10001,
-    B10001,
-    B01110
+    #if ENABLED(ESCALOPLAB_STATUS)  // Hotend: heater block + nozzle
+      B11111,
+      B11111,
+      B01110,
+      B11111,
+      B11111,
+      B01110,
+      B00100,
+      B00000
+    #else
+      B00100,
+      B01010,
+      B01010,
+      B01010,
+      B01010,
+      B10001,
+      B10001,
+      B01110
+    #endif
   };
 
   const static PROGMEM byte uplevel[8] = {
@@ -268,7 +257,7 @@ void MarlinUI::set_custom_characters(const HD44780CharSet screen_charset/*=CHARS
   };
 
   const static PROGMEM byte feedrate[8] = {
-    #if LCD_INFO_SCREEN_STYLE == 1
+    #if LCD_INFO_SCREEN_STYLE == 1 || ENABLED(ESCALOPLAB_STATUS)
       B00000,
       B00100,
       B10010,
@@ -380,6 +369,11 @@ void MarlinUI::set_custom_characters(const HD44780CharSet screen_charset/*=CHARS
           for (int16_t i = 3; i--;)
             createChar_P(LCD_STR_PROGRESS[i], progress[i]);
         }
+        else
+      #endif
+      #if ENABLED(ESCALOPLAB_STATUS)
+        if (screen_charset == CHARSET_INFO) // Slots 3-6 are loaded on demand by the status screen
+          esc_status_glyphs_reset();
         else
       #endif
         {
@@ -498,26 +492,124 @@ void MarlinUI::clear_lcd() { lcd.clear(); }
 
   #if ENABLED(ESCALOPLAB_LOGO)
 
-    //
-    // Escaloplab boot screen
-    //
-    //   +--------------------+
-    //   | /\   ESCALOPLAB    |   three stacked chevrons, lit bottom -> top
-    //   | /\   3D PRINTERS   |   like layers rising on the bed
-    //   | /\   FIRMWARE V1.0 |
-    //   |   escaloplab.com   |
-    //   +--------------------+
-    //
-    #define ESC_LOGO_COL 1    // left cell of each chevron
-    #define ESC_TEXT_COL 6    // where the text column starts
+    /**
+     * Escaloplab boot sequence
+     *
+     * Scene 1 - the logo on its own, 5 cells wide and the full 4 rows tall.
+     *   Rasterized from the real icon (website/public/escaloplab-icon.svg): arms at 35 degrees,
+     *   round caps, rounded apex. A chevron is 5 glyphs: the peak (P1 P2 P3) sits on one row
+     *   and its two rounded ends (E0, E4) on the row below, so three chevrons share 5 glyphs.
+     *
+     *        row 0   .  P1 P2 P3 .
+     *        row 1   E0 P1 P2 P3 E4
+     *        row 2   E0 P1 P2 P3 E4
+     *        row 3   E0 .  .  .  E4
+     *
+     *   The 3 spare glyph slots are redrawn on the fly to "ignite" each tube from the apex
+     *   out to its ends, bottom chevron first (rising layers), followed by a neon flicker.
+     *
+     * Scene 2 - the ESCALOPLAB wordmark in double-height letters (2x2 cells each, 20 columns),
+     *   squared and corner-cut like the Tektur brand font, built from 8 stroke glyphs.
+     */
 
-    static void esc_chevron(const uint8_t row, const bool lit) {
-      lcd_put_lchar(ESC_LOGO_COL,     row, lchar_t(lit ? 2 : 0));
-      lcd_put_lchar(ESC_LOGO_COL + 1, row, lchar_t(lit ? 3 : 1));
+    //
+    // Scene 1: logo
+    //
+    static const PROGMEM byte esc_logo[5][8] = {
+      { B00111, B01111, B11110, B01100, B00000, B00000, B00000, B00000 },   // 0 = E0  left end
+      { B00000, B00000, B00000, B00001, B00011, B01111, B11111, B11100 },   // 1 = P1  left arm
+      { B00000, B01110, B11111, B11111, B11011, B00000, B00000, B00000 },   // 2 = P2  apex
+      { B00000, B00000, B00000, B10000, B11000, B11110, B11111, B00111 },   // 3 = P3  right arm
+      { B11100, B11110, B01111, B00110, B00000, B00000, B00000, B00000 }    // 4 = E4  right end
+    };
+
+    #define ESC_LOGO_COL ((LCD_WIDTH - 5) / 2)
+
+    // Load glyph 'src' into CGRAM slot 'slot', keeping only the pixel columns in 'mask'
+    static void esc_glyph(const uint8_t slot, const byte * const src, const uint8_t mask=0x1F) {
+      byte temp[8];
+      for (uint8_t i = 0; i < 8; ++i) temp[i] = pgm_read_byte(&src[i]) & mask;
+      lcd.createChar(slot, temp);
     }
 
-    static void esc_chevrons(const bool lit) {
-      for (uint8_t r = 0; r < 3; ++r) esc_chevron(r, lit);
+    static void esc_put(const int8_t col, const int8_t row, const uint8_t ch) {
+      if (WITHIN(row, 0, LCD_HEIGHT - 1)) lcd_put_lchar(col, row, lchar_t(ch));
+    }
+
+    // Draw chevron k (0 = top) with the static glyphs, shifted by 'yoff' rows
+    static void esc_chevron(const uint8_t k, const int8_t yoff=0) {
+      const int8_t r = k + yoff;
+      for (uint8_t i = 1; i <= 3; ++i) esc_put(ESC_LOGO_COL + i, r, i);
+      esc_put(ESC_LOGO_COL, r + 1, 0);
+      esc_put(ESC_LOGO_COL + 4, r + 1, 4);
+    }
+
+    static void esc_logo_glyphs(const uint8_t mask) {
+      for (uint8_t i = 0; i < 5; ++i) esc_glyph(i, esc_logo[i], mask);
+    }
+
+    // Light chevron k like a neon tube: from the apex outward to both ends
+    static void esc_ignite(const uint8_t k) {
+      static const PROGMEM uint8_t grow_l[] = { B00001, B00011, B00111, B01111, B11111 },  // right-to-left
+                                   grow_r[] = { B10000, B11000, B11100, B11110, B11111 };  // left-to-right
+      const uint8_t c = ESC_LOGO_COL;
+
+      // Peak: spare slots 5,6,7 stand in for P1,P2,P3
+      for (uint8_t i = 5; i <= 7; ++i) esc_glyph(i, esc_logo[0], 0);
+      for (uint8_t i = 1; i <= 3; ++i) esc_put(c + i, k, i + 4);
+      for (uint8_t s = 0; s < 3; ++s) {                       // apex opens from its center
+        esc_glyph(6, esc_logo[2], s == 0 ? B00100 : s == 1 ? B01110 : B11111);
+        safe_delay(26);
+      }
+      for (uint8_t s = 0; s < 5; ++s) {                       // both arms run down
+        esc_glyph(5, esc_logo[1], pgm_read_byte(&grow_l[s]));
+        esc_glyph(7, esc_logo[3], pgm_read_byte(&grow_r[s]));
+        safe_delay(26);
+      }
+      for (uint8_t i = 1; i <= 3; ++i) esc_put(c + i, k, i);  // hand over to the static glyphs
+
+      // Ends: spare slots 5,6 stand in for E0,E4
+      esc_glyph(5, esc_logo[0], 0);
+      esc_glyph(6, esc_logo[4], 0);
+      esc_put(c, k + 1, 5);
+      esc_put(c + 4, k + 1, 6);
+      for (uint8_t s = 0; s < 5; ++s) {
+        esc_glyph(5, esc_logo[0], pgm_read_byte(&grow_l[s]));
+        esc_glyph(6, esc_logo[4], pgm_read_byte(&grow_r[s]));
+        safe_delay(26);
+      }
+      esc_put(c, k + 1, 0);
+      esc_put(c + 4, k + 1, 4);
+    }
+
+    //
+    // Scene 2: wordmark
+    //
+    // Stroke glyphs. Left-hand cells carry the stem on the left, right-hand cells on the right
+    // (one blank column is left on the right for letter spacing). Outer corners are cut.
+    static const PROGMEM byte esc_font[8][8] = {
+      { B01111, B11111, B11000, B11000, B11000, B11000, B11000, B11000 },   // 0 = stem + top bar     (left cell)
+      { B11100, B11110, B00110, B00110, B00110, B00110, B00110, B00110 },   // 1 = top bar + stem     (right cell)
+      { B11110, B11110, B00000, B00000, B00000, B00000, B00000, B00000 },   // 2 = top bar
+      { B11000, B11000, B11000, B11000, B11000, B11000, B11111, B01111 },   // 3 = stem + bottom bar  (left cell)
+      { B00110, B00110, B00110, B00110, B00110, B00110, B11110, B11100 },   // 4 = bottom bar + stem  (right cell)
+      { B00000, B00000, B00000, B00000, B00000, B00000, B11110, B11110 },   // 5 = bottom bar
+      { B11000, B11000, B11000, B11000, B11000, B11000, B11000, B11000 },   // 6 = stem
+      { B11111, B11111, B11000, B11000, B11000, B11000, B11111, B11111 }    // 7 = stem + both bars   (left cell)
+    };
+
+    #define _SP 0x20
+    //                                              E      S      C      A      L        O      P      L        A      B
+    static const PROGMEM uint8_t esc_word_top[] = { 0,2,   7,2,   0,2,   0,1,   6,_SP,   0,1,   0,1,   6,_SP,   0,1,   0,1 },
+                                 esc_word_bot[] = { 7,5,   5,4,   3,5,   0,1,   3,5,     3,4,   0,2,   3,5,     0,1,   7,4 };
+    #define ESC_WORD_COL ((LCD_WIDTH - 20) / 2)
+    #define ESC_WORD_ROW 1
+
+    static void esc_word_cells(const uint8_t from, const uint8_t to, const bool show=true) {
+      for (uint8_t i = from; i <= to; ++i) {
+        lcd_put_lchar(ESC_WORD_COL + i, ESC_WORD_ROW,     lchar_t(show ? pgm_read_byte(&esc_word_top[i]) : _SP));
+        lcd_put_lchar(ESC_WORD_COL + i, ESC_WORD_ROW + 1, lchar_t(show ? pgm_read_byte(&esc_word_bot[i]) : _SP));
+      }
     }
 
     // "Type" an ASCII PROGMEM string one character at a time
@@ -536,35 +628,54 @@ void MarlinUI::clear_lcd() { lcd.clear(); }
     }
 
     void MarlinUI::show_bootscreen() {
-      set_custom_characters(CHARSET_BOOT);
-      lcd.clear();
 
-      // 1. Unlit outline of the logo
-      esc_chevrons(false);
+      // ---------------- Scene 1: the logo, alone ----------------
+      lcd.clear();
+      esc_logo_glyphs(0x1F);
       safe_delay(350);
 
-      // 2. Chevrons light up from the bottom one to the top one
-      for (int8_t r = 2; r >= 0; --r) { esc_chevron(r, true); safe_delay(230); }
+      // Chevrons light up from the bottom one to the top one
+      for (int8_t k = 2; k >= 0; --k) { esc_ignite(k); safe_delay(170); }
 
-      // 3. Wordmark: ESCALOP ... LAB
-      esc_type(ESC_TEXT_COL, 0, F("ESCALOP"), 55);
-      safe_delay(150);
-      esc_type(ESC_TEXT_COL + 7, 0, F("LAB"), 55);
+      // Neon flicker (all tubes share the same glyphs, so they blink together)
+      safe_delay(250);
+      esc_logo_glyphs(0);    safe_delay(70);
+      esc_logo_glyphs(0x1F); safe_delay(130);
+      esc_logo_glyphs(0);    safe_delay(45);
+      esc_logo_glyphs(0x1F);
+      safe_delay(1500);
 
-      // 4. Neon flicker
+      // The logo flies up and out
+      for (int8_t y = -1; y >= -4; --y) {
+        lcd.clear();
+        for (uint8_t k = 0; k < 3; ++k) esc_chevron(k, y);
+        safe_delay(95);
+      }
+      lcd.clear();
       safe_delay(200);
-      esc_chevrons(false); safe_delay(60);
-      esc_chevrons(true);  safe_delay(120);
-      esc_chevrons(false); safe_delay(45);
-      esc_chevrons(true);
 
-      // 5. Tagline, firmware version, website
-      lcd_put_u8str(ESC_TEXT_COL, 1, F("3D PRINTERS"));
-      lcd_put_u8str(ESC_TEXT_COL, 2, F("FIRMWARE V" ESCALOPLAB_FW_VERSION));
+      // ---------------- Scene 2: the wordmark ----------------
+      for (uint8_t i = 0; i < 8; ++i) esc_glyph(i, esc_font[i]);
+
+      // Letters are laid down left to right, like a nozzle pass
+      for (uint8_t i = 0; i < 20; ++i) { esc_word_cells(i, i); safe_delay(42); }
+
+      // "LAB" is the neon part of the wordmark: give it a flicker
+      safe_delay(300);
+      esc_word_cells(14, 19, false); safe_delay(70);
+      esc_word_cells(14, 19);        safe_delay(120);
+      esc_word_cells(14, 19, false); safe_delay(45);
+      esc_word_cells(14, 19);
+      safe_delay(250);
+
+      // Tagline, website, firmware version
+      esc_type((LCD_WIDTH - 11) / 2, 0, F("3D PRINTERS"), 32);
       esc_center(3, F(WEBSITE_URL));
-      safe_delay(1600);
+      safe_delay(1500);
+      esc_center(3, F("FIRMWARE V" ESCALOPLAB_FW_VERSION));
+      safe_delay(1100);
 
-      // 6. Credit to the firmware we're built on
+      // Credit to the firmware this is built on
       esc_center(3, F("Powered by Marlin"));
       safe_delay(900);
     }
@@ -981,6 +1092,163 @@ void MarlinUI::draw_status_message(const bool blink) {
  *  |01234567890123456789|
  */
 
+#if ENABLED(ESCALOPLAB_STATUS)
+
+  /**
+   * Escaloplab status screen (20x4)
+   *
+   *  Idle      |n205/210  b 60/60   |   n = hotend, b = bed (icons animate while heating)
+   *            |X 105 Y 105 Z  10.00|
+   *            |f  0%  >100%  c--:--|   f = fan (spins), > = speed, c = clock
+   *            |Escaloplab Ready.   |
+   *
+   *  Printing  |n205/210  b 60/60   |
+   *            |#######=------- 48% |   75-pixel progress bar
+   *            |f100% Z  12.40 c1:23|   elapsed time, alternating with 'R' time remaining
+   *            |benchy.gcode        |
+   *
+   * CGRAM slots: 0 bed, 1 degree, 2 hotend, 3 bar (empty), 4 bar (leading edge),
+   *              5 fan, 6 speed / bar (full), 7 clock. Slots 0,2,4,5,6 are redrawn on demand.
+   */
+  static const PROGMEM byte esc_ico_nozzle[2][8] = {
+    { B11111, B11111, B01110, B11111, B11111, B01110, B00100, B00000 },     // idle / at temperature
+    { B11111, B11111, B01110, B11111, B11111, B01110, B00100, B00100 }      // heating: a drop forms
+  };
+  static const PROGMEM byte esc_ico_bed[3][8] = {
+    { B00000, B00000, B00000, B00000, B11111, B11111, B10001, B00000 },     // off
+    { B01001, B10010, B01001, B00000, B11111, B11111, B10001, B00000 },     // heat waves, frame 1
+    { B10010, B01001, B10010, B00000, B11111, B11111, B10001, B00000 }      // heat waves, frame 2
+  };
+  static const PROGMEM byte esc_ico_fan[2][8] = {
+    { B00000, B00100, B00100, B11011, B00100, B00100, B00000, B00000 },     // +
+    { B00000, B10001, B01010, B00100, B01010, B10001, B00000, B00000 }      // x
+  };
+  static const PROGMEM byte esc_ico_speed[8] = { B00000, B00100, B10010, B01001, B10010, B00100, B00000, B00000 };
+  static const PROGMEM byte esc_bar_empty[8] = { B00000, B11111, B00000, B00000, B00000, B00000, B11111, B00000 };
+  static const PROGMEM byte esc_bar_full[8]  = { B00000, B11111, B11111, B11111, B11111, B11111, B11111, B00000 };
+
+  #define ESC_SLOT_BAR_EMPTY 3
+  #define ESC_SLOT_BAR_EDGE  4
+  #define ESC_SLOT_FAN       5
+  #define ESC_SLOT_MULTI     6    // Speed icon when idle, full bar cell when printing
+  #define ESC_BAR_CELLS     15
+
+  // What each on-demand slot currently holds (0xFF = unknown, reload it)
+  static uint8_t esc_noz_frame, esc_bed_frame, esc_fan_frame, esc_bar_edge, esc_multi;
+
+  static void esc_status_glyphs_reset() {
+    esc_noz_frame = esc_bed_frame = esc_fan_frame = esc_bar_edge = esc_multi = 0xFF;
+    createChar_P(ESC_SLOT_BAR_EMPTY, esc_bar_empty);
+  }
+
+  void MarlinUI::draw_status_screen() {
+    const bool blink = get_blink();
+    static uint8_t tick; // = 0
+    ++tick;
+    const bool anim = tick & 1,
+               printing = printJobOngoing();
+
+    //
+    // Icons: reload a glyph only when its frame changes
+    //
+    const celsius_t noz_target = thermalManager.degTargetHotend(0),
+                    bed_target = thermalManager.degTargetBed();
+
+    uint8_t f = (noz_target > 0 && thermalManager.wholeDegHotend(0) < noz_target - 2 && anim) ? 1 : 0;
+    if (f != esc_noz_frame) createChar_P(LCD_STR_THERMOMETER[0], esc_ico_nozzle[esc_noz_frame = f]);
+
+    f = bed_target <= 0 ? 0 : (thermalManager.wholeDegBed() < bed_target - 1 && anim) ? 2 : 1;
+    if (f != esc_bed_frame) createChar_P(LCD_STR_BEDTEMP[0], esc_ico_bed[esc_bed_frame = f]);
+
+    const uint8_t fan_pct = TERN0(HAS_FAN0, thermalManager.scaledFanSpeedPercent(0));
+    f = (fan_pct && anim) ? 1 : 0;
+    if (f != esc_fan_frame) createChar_P(ESC_SLOT_FAN, esc_ico_fan[esc_fan_frame = f]);
+
+    f = printing ? 1 : 0;
+    if (f != esc_multi) createChar_P(ESC_SLOT_MULTI, (esc_multi = f) ? esc_bar_full : esc_ico_speed);
+
+    // Progress bar geometry: 5 pixels per cell
+    const uint8_t percent = TERN0(HAS_PRINT_PROGRESS, get_progress_percent()),
+                  bar_px = uint16_t(percent) * (ESC_BAR_CELLS * 5) / 100,
+                  bar_full = bar_px / 5, bar_rem = bar_px % 5;
+    if (printing && bar_rem != esc_bar_edge) {
+      esc_bar_edge = bar_rem;
+      const uint8_t fill = 0x1F & ~(0x1F >> bar_rem);         // leftmost 'bar_rem' pixel columns
+      byte temp[8];
+      for (uint8_t i = 0; i < 8; ++i)
+        temp[i] = pgm_read_byte(&esc_bar_empty[i]) | ((i >= 1 && i <= 6) ? fill : 0);
+      lcd.createChar(ESC_SLOT_BAR_EDGE, temp);
+    }
+
+    //
+    // Row 0: hotend and bed
+    //
+    lcd_moveto(0, 0);
+    _draw_heater_status(H_E0, LCD_STR_THERMOMETER[0], blink);
+    lcd_moveto(10, 0);
+    _draw_bed_status(blink);
+
+    //
+    // Row 1: progress bar while printing, otherwise the position
+    //
+    lcd_moveto(0, 1);
+    if (printing) {
+      for (uint8_t i = 0; i < ESC_BAR_CELLS; ++i)
+        lcd_put_lchar(lchar_t(i < bar_full ? ESC_SLOT_MULTI : (i == bar_full && bar_rem) ? ESC_SLOT_BAR_EDGE : ESC_SLOT_BAR_EMPTY));
+      lcd_put_u8str(F(" "));
+      lcd_put_u8str(ui8tostr3rj(percent));
+      lcd_put_u8str(F("%"));
+    }
+    else {
+      const xy_pos_t lpos = current_position.asLogical();
+      _draw_axis_value(X_AXIS, ftostr4sign(lpos.x), blink);
+      lcd_put_u8str(F(" "));
+      _draw_axis_value(Y_AXIS, ftostr4sign(lpos.y), blink);
+      lcd_put_u8str(F(" "));
+      _draw_axis_value(Z_AXIS, ftostr52sp(LOGICAL_Z_POSITION(current_position.z)), blink);
+    }
+
+    //
+    // Row 2: fan, then Z (printing) or speed (idle), then the print timer
+    //
+    lcd_moveto(0, 2);
+    lcd_put_lchar(lchar_t(ESC_SLOT_FAN));
+    lcd_put_u8str(ui8tostr3rj(fan_pct));
+    lcd_put_u8str(F("%"));
+
+    char buffer[14];
+    char prefix = LCD_STR_CLOCK[0];
+    if (printing) {
+      lcd_put_u8str(F(" Z"));
+      lcd_put_u8str(&ftostr52sp(LOGICAL_Z_POSITION(current_position.z))[1]);  // skip the sign column: 6 chars
+      lcd_put_u8str(F(" "));
+      duration_t t = print_job_timer.duration();
+      #if ENABLED(SET_REMAINING_TIME)
+        const uint32_t remain = get_remaining_time();
+        if (remain && blink) { t = remain; prefix = 'R'; }
+      #endif
+      t.toDigital(buffer);
+    }
+    else {
+      lcd_put_u8str(F("  "));
+      lcd_put_lchar(lchar_t(ESC_SLOT_MULTI));
+      lcd_put_u8str(i16tostr3rj(feedrate_percentage));
+      lcd_put_u8str(F("%  "));
+      strcpy_P(buffer, PSTR("--:--"));
+    }
+    lcd_moveto(LCD_WIDTH - 6, 2);
+    lcd_put_lchar(lchar_t(prefix));
+    lcd_put_u8str_max(buffer, 5);
+    for (uint8_t n = strlen(buffer); n < 5; ++n) lcd_put_u8str(F(" "));
+
+    //
+    // Row 3: status message
+    //
+    draw_status_message(blink);
+  }
+
+#else // !ESCALOPLAB_STATUS
+
 void MarlinUI::draw_status_screen() {
 
   const bool blink = get_blink();
@@ -1256,6 +1524,8 @@ void MarlinUI::draw_status_screen() {
   //
   draw_status_message(blink);
 }
+
+#endif // !ESCALOPLAB_STATUS
 
 #if HAS_MARLINUI_MENU
 

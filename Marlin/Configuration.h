@@ -72,13 +72,22 @@
  *           12V PSU, MK2B heatbed + textured PEI, 20x4 Smart Controller,
  *           ESP-01 WiFi (ESP3D) on Serial3. Build volume 210 x 210 x 200.
  */
-#define ESCALOPLAB_FW_VERSION "1.0"
+#define ESCALOPLAB_FW_VERSION "1.1"
 #define DETAILED_BUILD_VERSION SHORT_BUILD_VERSION " Escaloplab-" ESCALOPLAB_FW_VERSION
 #define WEBSITE_URL "escaloplab.com"
 
 // Animated Escaloplab logo on the 20x4 LCD at power-on (marlinui_HD44780.cpp).
 // Disable to get the stock Marlin boot screen back.
 #define ESCALOPLAB_BOOTSCREEN
+
+// Escaloplab status screen for the 20x4 LCD: animated nozzle / bed / fan icons,
+// a smooth pixel-accurate progress bar and print timers. Disable for the stock screen.
+#define ESCALOPLAB_STATUS_SCREEN
+
+// Quiet idle: DRV8825 drivers hiss and tick while they hold a motor still.
+// Motors are released after DEFAULT_STEPPER_TIMEOUT_SEC of standstill (Configuration_adv.h),
+// but never in the middle of a print job (e.g. while waiting for the nozzle to heat).
+#define ESCALOPLAB_QUIET_IDLE
 
 // Piezo bed sensor (nozzle-contact probe on the Z-min plug). Leave OFF until
 // the sensor is installed. Turning it on sets up the probe, Z homing with the
@@ -1221,9 +1230,9 @@
  * Override with M92
  *                                      X, Y, Z [, I [, J [, K...]]], E0 [, E1[, E2...]]
  */
-// Escaloplab @ 1/32 microstepping: X/Y GT2 20T = 160, Z T8x2 lead screw = 3200,
+// Escaloplab: X/Y GT2 20T @ 1/32 = 160, Z = 400 (owner-measured),
 // E MK8 drive gear ~186 (starting point: calibrate with a 100 mm extrude, then M92 E... + M500)
-#define DEFAULT_AXIS_STEPS_PER_UNIT   { 160, 160, 3200, 186 }
+#define DEFAULT_AXIS_STEPS_PER_UNIT   { 160, 160, 400, 186 }
 
 /**
  * Default Max Feed Rate (linear=mm/s, rotational=°/s)
