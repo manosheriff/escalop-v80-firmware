@@ -55,13 +55,10 @@ for k in range(3):
     c1[(7, k + 1)] = logo[0]; c1[(11, k + 1)] = logo[4]
 
 # --- Scene 2: wordmark ---
-top = [0,2, 7,2, 0,2, 0,1, 6,None, 0,1, 0,1, 6,None, 0,1, 0,1]
-bot = [7,5, 5,4, 3,5, 0,1, 3,5, 3,4, 0,2, 3,5, 0,1, 7,4]
+word = [0, 1, 2, 3, 4, 5, 6, 4, 3, 7]   # E S C A L O P L A B
 c2 = {}
-for i in range(20):
-    if top[i] is not None: c2[(i, 1)] = font[top[i]]
-    c2[(i, 2)] = font[bot[i]]
-text(c2, 4, 0, '3D PRINTERS'); text(c2, 3, 3, 'escaloplab.com')
+for i, g in enumerate(word): c2[(i * 2, 1)] = font[g]
+text(c2, 4, 2, '3D PRINTERS'); text(c2, 3, 3, 'escaloplab.com')
 
 # --- Status: idle (heating) ---
 ic = {'n': noz[1], 'b': bed[1], 'd': degree, 'f': fan[0], 's': speed, 'c': clock}
@@ -115,16 +112,17 @@ for y in (-1, -2, -3, -4):
     add({(c, r + y): g for (c, r), g in cur.items() if r + y >= 0}, 95)
 add({}, 200)
 cur = {}
-for i in range(20):
-    if top[i] is not None: cur[(i, 1)] = font[top[i]]
-    cur[(i, 2)] = font[bot[i]]; add(cur, 45)
-add(cur, 300)
+for row in range(7, -1, -1):
+    for i, g in enumerate(word): cur[(i * 2, 1)] = [r if y >= row else 0 for y, r in enumerate(font[g])]
+    add(cur, 75)
+add(cur, 350)
 nolab = {k: v for k, v in cur.items() if k[0] < 14}
-add(nolab, 70); add(cur, 120); add(nolab, 50); add(cur, 250)
-for i in range(11): text(cur, 4, 0, '3D PRINTERS'[:i + 1]); add(cur, 40)
+add(nolab, 70); add(cur, 120); add(nolab, 50); add(cur, 300)
+for i in range(11): text(cur, 4, 2, '3D PRINTERS'[:i + 1]); add(cur, 40)
+add(cur, 300)
 text(cur, 3, 3, 'escaloplab.com'); add(cur, 1500)
 for c in range(20): cur.pop((c, 3), None)
-text(cur, 3, 3, 'FIRMWARE V1.1'); add(cur, 1100)
+text(cur, 3, 3, 'FIRMWARE V1.2'); add(cur, 1100)
 for c in range(20): cur.pop((c, 3), None)
 text(cur, 1, 3, 'Powered by Marlin'); add(cur, 1200)
 small = [f.resize((W // 2, H // 2), Image.LANCZOS) for f in frames]

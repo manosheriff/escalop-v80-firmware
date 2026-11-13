@@ -508,8 +508,9 @@ void MarlinUI::clear_lcd() { lcd.clear(); }
      *   The 3 spare glyph slots are redrawn on the fly to "ignite" each tube from the apex
      *   out to its ends, bottom chevron first (rising layers), followed by a neon flicker.
      *
-     * Scene 2 - the ESCALOPLAB wordmark in double-height letters (2x2 cells each, 20 columns),
-     *   squared and corner-cut like the Tektur brand font, built from 8 stroke glyphs.
+     * Scene 2 - the ESCALOPLAB wordmark. It has exactly 8 different letters, so each one gets
+     *   its own bold, squared, corner-cut glyph in the style of the Tektur brand font. The
+     *   letters are spaced out across the whole row and "printed" layer by layer, bottom up.
      */
 
     //
@@ -526,9 +527,10 @@ void MarlinUI::clear_lcd() { lcd.clear(); }
     #define ESC_LOGO_COL ((LCD_WIDTH - 5) / 2)
 
     // Load glyph 'src' into CGRAM slot 'slot', keeping only the pixel columns in 'mask'
-    static void esc_glyph(const uint8_t slot, const byte * const src, const uint8_t mask=0x1F) {
+    // and only the pixel rows from 'first_row' down
+    static void esc_glyph(const uint8_t slot, const byte * const src, const uint8_t mask=0x1F, const uint8_t first_row=0) {
       byte temp[8];
-      for (uint8_t i = 0; i < 8; ++i) temp[i] = pgm_read_byte(&src[i]) & mask;
+      for (uint8_t i = 0; i < 8; ++i) temp[i] = i >= first_row ? pgm_read_byte(&src[i]) & mask : 0;
       lcd.createChar(slot, temp);
     }
 
@@ -585,31 +587,27 @@ void MarlinUI::clear_lcd() { lcd.clear(); }
     //
     // Scene 2: wordmark
     //
-    // Stroke glyphs. Left-hand cells carry the stem on the left, right-hand cells on the right
-    // (one blank column is left on the right for letter spacing). Outer corners are cut.
+    // One bold glyph per letter (5x8, 2-pixel strokes, cut corners)
     static const PROGMEM byte esc_font[8][8] = {
-      { B01111, B11111, B11000, B11000, B11000, B11000, B11000, B11000 },   // 0 = stem + top bar     (left cell)
-      { B11100, B11110, B00110, B00110, B00110, B00110, B00110, B00110 },   // 1 = top bar + stem     (right cell)
-      { B11110, B11110, B00000, B00000, B00000, B00000, B00000, B00000 },   // 2 = top bar
-      { B11000, B11000, B11000, B11000, B11000, B11000, B11111, B01111 },   // 3 = stem + bottom bar  (left cell)
-      { B00110, B00110, B00110, B00110, B00110, B00110, B11110, B11100 },   // 4 = bottom bar + stem  (right cell)
-      { B00000, B00000, B00000, B00000, B00000, B00000, B11110, B11110 },   // 5 = bottom bar
-      { B11000, B11000, B11000, B11000, B11000, B11000, B11000, B11000 },   // 6 = stem
-      { B11111, B11111, B11000, B11000, B11000, B11000, B11111, B11111 }    // 7 = stem + both bars   (left cell)
+      { B11111, B11111, B11000, B11110, B11110, B11000, B11111, B11111 },   // 0 = E
+      { B01111, B11111, B11000, B11110, B01111, B00011, B11111, B11110 },   // 1 = S
+      { B01111, B11111, B11000, B11000, B11000, B11000, B11111, B01111 },   // 2 = C
+      { B01110, B11111, B11011, B11011, B11111, B11111, B11011, B11011 },   // 3 = A
+      { B11000, B11000, B11000, B11000, B11000, B11000, B11111, B11111 },   // 4 = L
+      { B01110, B11111, B11011, B11011, B11011, B11011, B11111, B01110 },   // 5 = O
+      { B11110, B11111, B11011, B11011, B11111, B11110, B11000, B11000 },   // 6 = P
+      { B11110, B11111, B11011, B11110, B11111, B11011, B11111, B11110 }    // 7 = B
     };
 
-    #define _SP 0x20
-    //                                              E      S      C      A      L        O      P      L        A      B
-    static const PROGMEM uint8_t esc_word_top[] = { 0,2,   7,2,   0,2,   0,1,   6,_SP,   0,1,   0,1,   6,_SP,   0,1,   0,1 },
-                                 esc_word_bot[] = { 7,5,   5,4,   3,5,   0,1,   3,5,     3,4,   0,2,   3,5,     0,1,   7,4 };
-    #define ESC_WORD_COL ((LCD_WIDTH - 20) / 2)
+    //                                          E  S  C  A  L  O  P  L  A  B
+    static const PROGMEM uint8_t esc_word[] = { 0, 1, 2, 3, 4, 5, 6, 4, 3, 7 };
+    #define ESC_WORD_COL ((LCD_WIDTH - 19) / 2)   // 10 letters, one blank column between them
     #define ESC_WORD_ROW 1
 
+    // Draw (or blank) letters 'from'..'to' of the wordmark
     static void esc_word_cells(const uint8_t from, const uint8_t to, const bool show=true) {
-      for (uint8_t i = from; i <= to; ++i) {
-        lcd_put_lchar(ESC_WORD_COL + i, ESC_WORD_ROW,     lchar_t(show ? pgm_read_byte(&esc_word_top[i]) : _SP));
-        lcd_put_lchar(ESC_WORD_COL + i, ESC_WORD_ROW + 1, lchar_t(show ? pgm_read_byte(&esc_word_bot[i]) : _SP));
-      }
+      for (uint8_t i = from; i <= to; ++i)
+        lcd_put_lchar(ESC_WORD_COL + i * 2, ESC_WORD_ROW, lchar_t(show ? pgm_read_byte(&esc_word[i]) : 0x20));
     }
 
     // "Type" an ASCII PROGMEM string one character at a time
@@ -655,21 +653,25 @@ void MarlinUI::clear_lcd() { lcd.clear(); }
       safe_delay(200);
 
       // ---------------- Scene 2: the wordmark ----------------
-      for (uint8_t i = 0; i < 8; ++i) esc_glyph(i, esc_font[i]);
-
-      // Letters are laid down left to right, like a nozzle pass
-      for (uint8_t i = 0; i < 20; ++i) { esc_word_cells(i, i); safe_delay(42); }
+      // All ten letters are "printed" together, one pixel layer at a time, bottom up
+      for (uint8_t i = 0; i < 8; ++i) esc_glyph(i, esc_font[i], 0);
+      esc_word_cells(0, 9);
+      for (int8_t row = 7; row >= 0; --row) {
+        for (uint8_t i = 0; i < 8; ++i) esc_glyph(i, esc_font[i], 0x1F, row);
+        safe_delay(70);
+      }
 
       // "LAB" is the neon part of the wordmark: give it a flicker
+      safe_delay(350);
+      esc_word_cells(7, 9, false); safe_delay(70);
+      esc_word_cells(7, 9);        safe_delay(120);
+      esc_word_cells(7, 9, false); safe_delay(45);
+      esc_word_cells(7, 9);
       safe_delay(300);
-      esc_word_cells(14, 19, false); safe_delay(70);
-      esc_word_cells(14, 19);        safe_delay(120);
-      esc_word_cells(14, 19, false); safe_delay(45);
-      esc_word_cells(14, 19);
-      safe_delay(250);
 
       // Tagline, website, firmware version
-      esc_type((LCD_WIDTH - 11) / 2, 0, F("3D PRINTERS"), 32);
+      esc_type((LCD_WIDTH - 11) / 2, 2, F("3D PRINTERS"), 32);
+      safe_delay(300);
       esc_center(3, F(WEBSITE_URL));
       safe_delay(1500);
       esc_center(3, F("FIRMWARE V" ESCALOPLAB_FW_VERSION));

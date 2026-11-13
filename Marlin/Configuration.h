@@ -72,7 +72,7 @@
  *           12V PSU, MK2B heatbed + textured PEI, 20x4 Smart Controller,
  *           ESP-01 WiFi (ESP3D) on Serial3. Build volume 210 x 210 x 200.
  */
-#define ESCALOPLAB_FW_VERSION "1.1"
+#define ESCALOPLAB_FW_VERSION "1.2"
 #define DETAILED_BUILD_VERSION SHORT_BUILD_VERSION " Escaloplab-" ESCALOPLAB_FW_VERSION
 #define WEBSITE_URL "escaloplab.com"
 
@@ -1230,9 +1230,9 @@
  * Override with M92
  *                                      X, Y, Z [, I [, J [, K...]]], E0 [, E1[, E2...]]
  */
-// Escaloplab: X/Y GT2 20T @ 1/32 = 160, Z = 400 (owner-measured),
-// E MK8 drive gear ~186 (starting point: calibrate with a 100 mm extrude, then M92 E... + M500)
-#define DEFAULT_AXIS_STEPS_PER_UNIT   { 160, 160, 400, 186 }
+// Escaloplab, measured on the printer: X/Y 160 confirmed. Z: 10 mm commanded at 400 moved 27 mm,
+// so 400 x 10 / 27 = 148 (refine with a longer move: new = old x commanded / measured). E = 93.
+#define DEFAULT_AXIS_STEPS_PER_UNIT   { 160, 160, 148, 93 }
 
 /**
  * Default Max Feed Rate (linear=mm/s, rotational=°/s)
@@ -2279,8 +2279,10 @@
 #define EEPROM_CHITCHAT       // Give feedback on EEPROM commands. Disable to save flash.
 #define EEPROM_BOOT_SILENT    // Keep M503 quiet and only give errors during first load
 #if ENABLED(EEPROM_SETTINGS)
-  //#define EEPROM_AUTO_INIT  // Init EEPROM automatically on any errors.
-  //#define EEPROM_INIT_NOW   // Init EEPROM on first boot after a new build.
+  #define EEPROM_AUTO_INIT    // Init EEPROM automatically on any errors.
+  #define EEPROM_INIT_NOW     // Init EEPROM on first boot after a new build.
+                              // Escaloplab: ON while the firmware is still being tuned, so every new flash starts
+                              // from the values in this file. Turn OFF later to keep M500 settings across updates.
 #endif
 
 // @section host
