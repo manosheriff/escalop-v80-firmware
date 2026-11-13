@@ -72,7 +72,7 @@
  *           12V PSU, MK2B heatbed + textured PEI, 20x4 Smart Controller,
  *           ESP-01 WiFi (ESP3D) on Serial3. Build volume 210 x 210 x 200.
  */
-#define ESCALOPLAB_FW_VERSION "1.2"
+#define ESCALOPLAB_FW_VERSION "1.3"
 #define DETAILED_BUILD_VERSION SHORT_BUILD_VERSION " Escaloplab-" ESCALOPLAB_FW_VERSION
 #define WEBSITE_URL "escaloplab.com"
 
@@ -1230,9 +1230,9 @@
  * Override with M92
  *                                      X, Y, Z [, I [, J [, K...]]], E0 [, E1[, E2...]]
  */
-// Escaloplab, measured on the printer: X/Y 160 confirmed. Z: 10 mm commanded at 400 moved 27 mm,
-// so 400 x 10 / 27 = 148 (refine with a longer move: new = old x commanded / measured). E = 93.
-#define DEFAULT_AXIS_STEPS_PER_UNIT   { 160, 160, 148, 93 }
+// Escaloplab: X/Y 160 confirmed on the printer, E = 93. Z = 800: T8 screw with 8 mm lead at 1/32
+// (the owner's "400" is the same screw at 1/16). To refine: new = old x commanded / measured.
+#define DEFAULT_AXIS_STEPS_PER_UNIT   { 160, 160, 800, 93 }
 
 /**
  * Default Max Feed Rate (linear=mm/s, rotational=°/s)
