@@ -72,7 +72,7 @@
  *           12V PSU, MK2B heatbed + textured PEI, 20x4 Smart Controller,
  *           ESP-01 WiFi (ESP3D) on Serial3. Build volume 210 x 210 x 200.
  */
-#define ESCALOPLAB_FW_VERSION "1.3"
+#define ESCALOPLAB_FW_VERSION "1.4"
 #define DETAILED_BUILD_VERSION SHORT_BUILD_VERSION " Escaloplab-" ESCALOPLAB_FW_VERSION
 #define WEBSITE_URL "escaloplab.com"
 
@@ -809,9 +809,10 @@
 
   // 120V 250W silicone heater into 4mm borosilicate (MendelMax 1.5+)
   // from FOPDT model - kp=.39 Tp=405 Tdead=66, Tc set to 79.2, aggressive factor of .15 (vs .1, 1, 10)
-  #define DEFAULT_BED_KP 10.00
-  #define DEFAULT_BED_KI .023
-  #define DEFAULT_BED_KD 305.4
+  // Escaloplab: M303 E-1 S60 C8 autotune on the printer, 12V MK2B + PEI (2026-11-13)
+  #define DEFAULT_BED_KP 39.87
+  #define DEFAULT_BED_KI 7.73
+  #define DEFAULT_BED_KD 137.18
 
   // FIND YOUR OWN: "M303 E-1 C8 S90" to run autotune on the bed at 90 degreesC for 8 cycles.
 #else
