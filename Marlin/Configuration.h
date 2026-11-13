@@ -72,7 +72,7 @@
  *           12V PSU, MK2B heatbed + textured PEI, 20x4 Smart Controller,
  *           ESP-01 WiFi (ESP3D) on Serial3. Build volume 210 x 210 x 200.
  */
-#define ESCALOPLAB_FW_VERSION "1.4"
+#define ESCALOPLAB_FW_VERSION "1.5"
 #define DETAILED_BUILD_VERSION SHORT_BUILD_VERSION " Escaloplab-" ESCALOPLAB_FW_VERSION
 #define WEBSITE_URL "escaloplab.com"
 
@@ -1231,9 +1231,9 @@
  * Override with M92
  *                                      X, Y, Z [, I [, J [, K...]]], E0 [, E1[, E2...]]
  */
-// Escaloplab: X/Y 160 confirmed on the printer, E = 93. Z = 800: T8 screw with 8 mm lead at 1/32
+// Escaloplab: X/Y 160 confirmed on the printer. Z = 800: T8 screw with 8 mm lead at 1/32
 // (the owner's "400" is the same screw at 1/16). To refine: new = old x commanded / measured.
-#define DEFAULT_AXIS_STEPS_PER_UNIT   { 160, 160, 800, 93 }
+#define DEFAULT_AXIS_STEPS_PER_UNIT   { 160, 160, 800, 186 }  // E: gearless MK8 at 1/32 (needs all 3 jumpers under the E0 driver)
 
 /**
  * Default Max Feed Rate (linear=mm/s, rotational=°/s)
