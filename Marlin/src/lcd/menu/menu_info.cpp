@@ -34,6 +34,233 @@
   #include "game/game.h"
 #endif
 
+#if ALL(ESCALOPLAB_INFO_SCREEN, HAS_MARLINUI_HD44780) && LCD_WIDTH >= 20 && LCD_HEIGHT >= 4
+
+/**
+ * Escaloplab Info screen (20x4)
+ *
+ * One full-screen deck of cards in place of the stock "About Printer" menus.
+ * Turn the dial to flip cards, click to leave. Each new card is laid down
+ * left to right in four quick passes, like the wordmark on the boot screen.
+ *
+ *   Cover   |    3D PRINTERS     |    Live     |N LIVE          o*ooo|
+ *           |[ E S C A L O P ] |              |h Hotend     205/210d|
+ *           |[ wordmark L A B ]|              |b Bed          60/60d|
+ *           |   escaloplab.com  >|              |c Powered on    12'34|
+ *
+ *   Machine |N MACHINE       oo*oo|  Motion |N STEPS / MM     ooo*o|
+ *           |  Build   210x210x200|          |  X   80.0   Y   80.0|
+ *           |  Hotend       E3D V6|          |  Z  800.0   E  186.0|
+ *           |  Bed      MK2B + PEI|          |  XY 1/16   Z+E 1/32 |
+ *
+ *   Firmware|N FIRMWARE      oooo*|
+ *           |  Escaloplab     v1.6|   N = logo, o and * = page dots,
+ *           |  Marlin      2.1.2.9|   h/b/c = hotend / bed / clock icons
+ *           |  Board     RAMPS 1.4|
+ */
+
+#include "../../module/temperature.h"
+#include "../../module/planner.h"
+#include "../../libs/duration_t.h"
+#include "../../libs/numtostr.h"
+#if ENABLED(ESCALOPLAB_WIFI)
+  #include "../../feature/escaloplab_wifi.h"
+#endif
+
+void esc_lcd_glyph(const uint8_t slot, const uint8_t * const pgm);  // marlinui_HD44780.cpp
+bool esc_lcd_wordmark(char * const top, char * const bot);
+
+namespace EscInfo {
+
+  // Content-card glyph slots. Slot 0 is only ever placed straight into a cell, never in a string.
+  enum : uint8_t { G_LOGO, G_DEG, G_ON, G_OFF, G_NOZ, G_BED, G_CLOCK, G_WARN };
+
+  static const PROGMEM uint8_t glyphs[8][8] = {
+    { B00100, B01110, B11011, B10001, B00100, B01110, B11011, B10001 },   // logo: stacked chevrons
+    { B01100, B10010, B10010, B01100, B00000, B00000, B00000, B00000 },   // degree
+    { B00000, B01110, B11111, B11111, B11111, B01110, B00000, B00000 },   // page marker, current
+    { B00000, B00000, B00000, B01110, B00000, B00000, B00000, B00000 },   // page marker, other
+    { B11111, B11111, B01110, B11111, B11111, B01110, B00100, B00000 },   // hotend
+    { B01001, B10010, B01001, B00000, B11111, B11111, B10001, B00000 },   // bed
+    { B00000, B01110, B10011, B10101, B10001, B01110, B00000, B00000 },   // clock
+    { B00100, B01110, B01010, B11011, B11111, B11011, B11111, B00000 }    // warning: sensor missing
+  };
+
+  enum : uint8_t { P_COVER, P_LIVE, P_MACHINE, P_MOTION,
+    #if ENABLED(ESCALOPLAB_WIFI)
+      P_WIFI,
+    #endif
+    P_FIRMWARE, PAGES };
+  constexpr uint8_t W = LCD_WIDTH, SWEEP = 4;   // a new card is laid down in 4 passes of 5 columns
+
+  static char cell[4][W];
+  static uint8_t page, reveal, glyph_set, redraw_wait;   // glyph_set: 0 = none, 1 = wordmark, 2 = content
+
+  static void put(uint8_t c, const uint8_t r, const char *s) { while (*s && c < W) cell[r][c++] = *s++; }
+  static void put_P(uint8_t c, const uint8_t r, PGM_P p) { for (char ch; (ch = pgm_read_byte(p)) && c < W; ++p) cell[r][c++] = ch; }
+  static void put_right(const uint8_t r, const char *s, const uint8_t end=W) { const uint8_t n = strlen(s); put(end > n ? end - n : 0, r, s); }
+
+  // "  Label         value" rows: label from column 2, value flush right
+  static void row(const uint8_t r, PGM_P label, const char *value) { put_P(2, r, label); put_right(r, value); }
+  static void row_P(const uint8_t r, PGM_P label, PGM_P value) { char buf[W + 1]; strncpy_P(buf, value, W); buf[W] = '\0'; row(r, label, buf); }
+
+  static void header(PGM_P title) {
+    cell[0][0] = char(G_LOGO);
+    put_P(2, 0, title);
+    for (uint8_t i = 0; i < PAGES; ++i) cell[0][W - PAGES + i] = char(i == page ? G_ON : G_OFF);
+  }
+
+  // One decimal place, e.g. 186.0
+  static void fmt1(char * const buf, const float v) {
+    const long t = lroundf(v * 10);
+    sprintf_P(buf, PSTR("%ld.%ld"), t / 10, t % 10);
+  }
+
+  // "205/210°", "23° off", or a sensor fault
+  static bool heater(char * const buf, const celsius_t now, const celsius_t target) {
+    if (now < 0) { strcpy_P(buf, PSTR("NO SENSOR")); return false; }
+    if (target > 0) sprintf_P(buf, PSTR("%d/%d" LCD_STR_DEGREE), int(now), int(target));
+    else            sprintf_P(buf, PSTR("%d" LCD_STR_DEGREE " off"), int(now));
+    return true;
+  }
+
+  static void build() {
+    memset(cell, ' ', sizeof(cell));
+    char buf[W + 1];
+
+    switch (page) {
+      case P_COVER: {
+        put_P((W - 11) / 2, 0, PSTR("3D PRINTERS"));
+        if (!esc_lcd_wordmark(cell[1], cell[2])) put_P((W - 19) / 2, 1, PSTR("E S C A L O P L A B"));
+        put_P((W - (sizeof(WEBSITE_URL) - 1)) / 2, 3, PSTR(WEBSITE_URL));
+        cell[3][W - 1] = '>';                       // turn the dial for more
+      } break;
+
+      case P_LIVE: {
+        header(PSTR("LIVE"));
+        const bool blink = ui.get_blink();
+        bool ok = heater(buf, thermalManager.wholeDegHotend(0), thermalManager.degTargetHotend(0));
+        cell[1][0] = char(ok || blink ? G_NOZ : G_WARN);
+        put_P(2, 1, PSTR("Hotend")); put_right(1, buf);
+        #if HAS_HEATED_BED
+          ok = heater(buf, thermalManager.wholeDegBed(), thermalManager.degTargetBed());
+          cell[2][0] = char(ok || blink ? G_BED : G_WARN);
+          put_P(2, 2, PSTR("Bed")); put_right(2, buf);
+        #endif
+        const duration_t up = millis() / 1000UL;
+        up.toDigital(buf, up.day() > 0);
+        cell[3][0] = char(G_CLOCK);
+        put_P(2, 3, PSTR("Powered on")); put_right(3, buf);
+      } break;
+
+      case P_MACHINE:
+        header(PSTR("MACHINE"));
+        row_P(1, PSTR("Build"),  PSTR(STRINGIFY(X_BED_SIZE) "x" STRINGIFY(Y_BED_SIZE) "x" STRINGIFY(Z_MAX_POS)));
+        row_P(2, PSTR("Hotend"), PSTR("E3D V6"));
+        row_P(3, PSTR("Bed"),    PSTR("MK2B + PEI"));
+        break;
+
+      case P_MOTION: {
+        header(PSTR("STEPS / MM"));
+        const float * const spm = planner.settings.axis_steps_per_mm;
+        cell[1][2] = 'X'; fmt1(buf, spm[X_AXIS]);      put_right(1, buf, 9);
+        cell[1][12] = 'Y'; fmt1(buf, spm[Y_AXIS]);     put_right(1, buf, W);
+        cell[2][2] = 'Z'; fmt1(buf, spm[Z_AXIS]);      put_right(2, buf, 9);
+        cell[2][12] = 'E'; fmt1(buf, spm[E_AXIS]);      put_right(2, buf, W);
+        #ifdef ESCALOPLAB_MICROSTEP_INFO
+          put_P(2, 3, PSTR(ESCALOPLAB_MICROSTEP_INFO));
+        #endif
+      } break;
+
+      #if ENABLED(ESCALOPLAB_WIFI)
+        case P_WIFI: {
+          header(PSTR("WI-FI"));
+          PGM_P st;
+          if (!escWifi.heard) st = PSTR("No module");
+          else switch (escWifi.state) {
+            case EscWifi::W_ON:   st = PSTR("Connected");     break;
+            case EscWifi::W_AP:   st = PSTR("Setup hotspot"); break;
+            case EscWifi::W_JOIN: st = PSTR("Connecting");    break;
+            default:              st = PSTR("Not connected"); break;
+          }
+          row_P(1, PSTR("Wi-Fi"), st);
+          if (escWifi.state == EscWifi::W_ON && escWifi.ip[0]) row(2, PSTR("IP"), escWifi.ip);
+          else if (escWifi.state == EscWifi::W_AP && escWifi.ap_name[0]) row(2, PSTR("Join"), escWifi.ap_name);
+          if (!escWifi.serial[0])           row_P(3, PSTR("Serial"), PSTR("unknown"));
+          else if (escWifi.serial[0] == '-') row_P(3, PSTR("Serial"), PSTR("not registered"));
+          else                               row(3, PSTR("Serial"), escWifi.serial);
+        } break;
+      #endif
+
+      case P_FIRMWARE:
+        header(PSTR("FIRMWARE"));
+        row_P(1, PSTR("Escaloplab"), PSTR("v" ESCALOPLAB_FW_VERSION));
+        row_P(2, PSTR("Marlin"),     PSTR(SHORT_BUILD_VERSION));   // credit to the firmware this is built on
+        row_P(3, PSTR("Board"),      PSTR(BOARD_INFO_NAME));
+        break;
+    }
+  }
+
+  // Draw columns [from, to) of every row
+  static void draw(const uint8_t from, const uint8_t to) {
+    for (uint8_t r = 0; r < 4; ++r) {
+      lcd_moveto(from, r);
+      for (uint8_t c = from; c < to; ++c) lcd_put_lchar(lchar_t(uint8_t(cell[r][c])));
+    }
+  }
+
+  static void load_glyphs() {
+    const uint8_t want = page == P_COVER ? 1 : 2;
+    if (want == glyph_set) return;
+    glyph_set = want;
+    if (want == 2) for (uint8_t i = 0; i < 8; ++i) esc_lcd_glyph(i, glyphs[i]);
+    // The cover's wordmark glyphs are loaded by build()
+  }
+
+  void screen() {
+    ui.encoder_direction_menus();
+    ENCODER_RATE_MULTIPLY(false);
+
+    if (ui.use_click()) return ui.go_back();          // leaving restores the menu glyphs
+
+    if (ui.screen_changed) {                          // just arrived
+      ui.screen_changed = false;
+      ui.encoderPosition = 0;
+      page = 0xFF; glyph_set = 0;
+    }
+
+    // Dial -> page, held within the deck
+    if (int32_t(ui.encoderPosition) < 0) ui.encoderPosition = 0;
+    uint8_t want = ui.encoderPosition / (ENCODER_STEPS_PER_MENU_ITEM);
+    if (want >= PAGES) { want = PAGES - 1; ui.encoderPosition = want * (ENCODER_STEPS_PER_MENU_ITEM); }
+
+    if (want != page) {                               // flip to a new card
+      page = want;
+      reveal = 0;
+      if (page == P_COVER) glyph_set = 1; else load_glyphs();
+      ui.clear_lcd();
+    }
+
+    if (reveal < SWEEP) {                             // lay the card down, 5 columns per pass
+      build();
+      const uint8_t step = W / SWEEP;
+      draw(reveal * step, (reveal + 1) * step);
+      if (++reveal == SWEEP) redraw_wait = 5;
+    }
+    else if (!redraw_wait--) {                        // then keep live values fresh (~2x per second)
+      redraw_wait = 5;
+      if (page == P_LIVE) { build(); draw(0, W); }
+    }
+
+    ui.refresh(LCDVIEW_CALL_NO_REDRAW);               // call back on every LCD update for the animation
+  }
+
+} // EscInfo
+
+void menu_info() { EscInfo::screen(); }
+
+#else // !ESCALOPLAB_INFO_SCREEN
+
 #define VALUE_ITEM(MSG, VALUE, STYL)    do{ char msg[21]; strcpy_P(msg, PSTR(": ")); strcpy(msg + 2, VALUE); STATIC_ITEM(MSG, STYL, msg); }while(0)
 #define VALUE_ITEM_F(MSG, PVALUE, STYL) do{ char msg[21]; strcpy_P(msg, PSTR(": ")); strcpy_P(msg + 2, PSTR(PVALUE)); STATIC_ITEM(MSG, STYL, msg); }while(0)
 
@@ -316,5 +543,7 @@ void menu_info() {
 
   END_MENU();
 }
+
+#endif // !ESCALOPLAB_INFO_SCREEN
 
 #endif // HAS_MARLINUI_MENU && LCD_INFO_MENU

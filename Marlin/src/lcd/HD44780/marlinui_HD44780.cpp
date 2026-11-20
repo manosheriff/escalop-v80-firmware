@@ -735,6 +735,31 @@ void MarlinUI::clear_lcd() { lcd.clear(); }
 
 #endif // SHOW_BOOTSCREEN
 
+#if ANY(ESCALOPLAB_INFO_SCREEN, ESCALOPLAB_WIFI)
+  // For the Escaloplab Info and Wi-Fi screens, which have no access to the 'lcd' object
+  void esc_lcd_glyph(const uint8_t slot, const uint8_t * const pgm) { createChar_P(slot, pgm); }
+#endif
+
+#if ENABLED(ESCALOPLAB_INFO_SCREEN)
+
+  // Load the wordmark's 8 stroke glyphs and copy its 20 top and 20 bottom cells into 'top' and 'bot'.
+  // Returns false when the wordmark isn't built in (boot logo disabled).
+  bool esc_lcd_wordmark(char * const top, char * const bot) {
+    #if ENABLED(ESCALOPLAB_LOGO)
+      for (uint8_t i = 0; i < 8; ++i) esc_glyph(i, esc_font[i]);
+      for (uint8_t i = 0; i < 20; ++i) {
+        top[i] = char(pgm_read_byte(&esc_word_top[i]));
+        bot[i] = char(pgm_read_byte(&esc_word_bot[i]));
+      }
+      return true;
+    #else
+      UNUSED(top); UNUSED(bot);
+      return false;
+    #endif
+  }
+
+#endif
+
 void MarlinUI::draw_kill_screen() {
   lcd_uint_t x = 0, y = 0;
   lcd_put_u8str(x, y, status_message);

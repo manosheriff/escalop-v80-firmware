@@ -88,6 +88,10 @@ void menu_configuration();
   void menu_info();
 #endif
 
+#if ENABLED(ESCALOPLAB_WIFI)
+  #include "menu_escaloplab_wifi.h"
+#endif
+
 #if ANY(LED_CONTROL_MENU, CASE_LIGHT_MENU)
   void menu_led();
 #endif
@@ -352,6 +356,11 @@ void menu_main() {
   #endif
 
   SUBMENU(MSG_CONFIGURATION, menu_configuration);
+
+  #if ENABLED(ESCALOPLAB_WIFI)
+    SUBMENU_F(F("Wi-Fi"), menu_escalop_wifi);
+    SUBMENU_F(F("Firmware"), menu_escalop_firmware);
+  #endif
 
   #if ENABLED(CUSTOM_MENU_MAIN)
     if (TERN1(CUSTOM_MENU_MAIN_ONLY_IDLE, !busy)) {

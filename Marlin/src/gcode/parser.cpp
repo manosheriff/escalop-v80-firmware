@@ -275,6 +275,7 @@ void GCodeParser::parse(char *p) {
     TERN_(GCODE_MACROS, case 810 ... 819:)
     TERN_(EXPECTED_PRINTER_CHECK, case 16:)
     case 23: case 28: case 30: case 117 ... 118: case 928:
+    TERN_(ESCALOPLAB_WIFI, case 9100 ... 9110:)   // Escaloplab Wi-Fi: raw text, split by the handler
       string_arg = unescape_string(p);
       return;
     default: break;

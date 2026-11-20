@@ -72,7 +72,7 @@
  *           12V PSU, MK2B heatbed + textured PEI, 20x4 Smart Controller,
  *           ESP-01 WiFi (ESP3D) on Serial3. Build volume 210 x 210 x 200.
  */
-#define ESCALOPLAB_FW_VERSION "1.5"
+#define ESCALOPLAB_FW_VERSION "1.7.0"   // X.Y.Z: the ESP-01 compares it numerically (release tag firmware-v1.7.0)
 #define DETAILED_BUILD_VERSION SHORT_BUILD_VERSION " Escaloplab-" ESCALOPLAB_FW_VERSION
 #define WEBSITE_URL "escaloplab.com"
 
@@ -83,6 +83,14 @@
 // Escaloplab status screen for the 20x4 LCD: animated nozzle / bed / fan icons,
 // a smooth pixel-accurate progress bar and print timers. Disable for the stock screen.
 #define ESCALOPLAB_STATUS_SCREEN
+
+// Escaloplab v80 Wi-Fi: the ESP-01 module on Serial0 (protocol in workshop/tools/escaloplab/esp01/PROTOCOL.md).
+// Wi-Fi setup from the LCD, firmware updates over Wi-Fi or from the SD card, fast uploads to the SD card.
+#define ESCALOPLAB_WIFI
+
+// Escaloplab Info screen for the 20x4 LCD: one full-screen card deck in place of the
+// stock "About Printer" menus. Turn the dial to flip cards, click to leave.
+#define ESCALOPLAB_INFO_SCREEN
 
 // Quiet idle: DRV8825 drivers hiss and tick while they hold a motor still.
 // Motors are released after DEFAULT_STEPPER_TIMEOUT_SEC of standstill (Configuration_adv.h),
@@ -144,7 +152,7 @@
  *
  * :[2400, 9600, 19200, 38400, 57600, 115200, 250000, 500000, 1000000]
  */
-#define BAUDRATE 250000
+#define BAUDRATE 1000000   // Escaloplab v1.7: the ESP-01 Wi-Fi module shares Serial0 (USB) at 1 Mbaud
 
 //#define BAUD_RATE_GCODE     // Enable G-code M575 to set the baud rate
 
@@ -153,12 +161,11 @@
  * Currently Ethernet (-2) is only supported on Teensy 4.1 boards.
  * :[-2, -1, 0, 1, 2, 3, 4, 5, 6, 7]
  */
-// Escaloplab: ESP-01 WiFi (running ESP3D) on Serial3 = RAMPS pins D14 (TX3) / D15 (RX3),
-// which are the Y-MIN / Y-MAX endstop plugs. The Y endstop therefore moves to the
-// X-MAX plug (D2). USB (Serial0) keeps working at the same time.
-#define SERIAL_PORT_2 3
-#define BAUDRATE_2 115200     // ESP3D default. :[2400, 9600, 19200, 38400, 57600, 115200, 250000, 500000, 1000000] Enable to override BAUDRATE
-#define Y_STOP_PIN 2          // Y endstop switch wired to the X-MAX plug (D2), see above
+// Escaloplab v1.7: the ESP-01 now sits on Serial0 (RAMPS AUX-1, shared with USB), not on
+// Serial3 as in the old ESP3D plan, so there is no second serial port any more.
+//#define SERIAL_PORT_2 -1
+//#define BAUDRATE_2 250000   // :[2400, 9600, 19200, 38400, 57600, 115200, 250000, 500000, 1000000] Enable to override BAUDRATE
+#define Y_STOP_PIN 2          // Y endstop switch is wired to the X-MAX plug (D2), left over from the Serial3 plan
 
 /**
  * Select a third serial port on the board to use for communication with the host.
@@ -195,8 +202,8 @@
  *          TMC5130, TMC5130_STANDALONE, TMC5160, TMC5160_STANDALONE
  * :['A4988', 'A5984', 'DRV8825', 'LV8729', 'TB6560', 'TB6600', 'TMC2100', 'TMC2130', 'TMC2130_STANDALONE', 'TMC2160', 'TMC2160_STANDALONE', 'TMC2208', 'TMC2208_STANDALONE', 'TMC2209', 'TMC2209_STANDALONE', 'TMC26X', 'TMC26X_STANDALONE', 'TMC2660', 'TMC2660_STANDALONE', 'TMC5130', 'TMC5130_STANDALONE', 'TMC5160', 'TMC5160_STANDALONE']
  */
-#define X_DRIVER_TYPE  DRV8825
-#define Y_DRIVER_TYPE  DRV8825
+#define X_DRIVER_TYPE  A4988      // Escaloplab v1.6: X/Y moved to A4988 (all 3 jumpers = 1/16)
+#define Y_DRIVER_TYPE  A4988
 #define Z_DRIVER_TYPE  DRV8825    // Both Z motors share this driver (RAMPS dual Z header)
 //#define X2_DRIVER_TYPE A4988
 //#define Y2_DRIVER_TYPE A4988
@@ -1231,16 +1238,17 @@
  * Override with M92
  *                                      X, Y, Z [, I [, J [, K...]]], E0 [, E1[, E2...]]
  */
-// Escaloplab: X/Y 160 confirmed on the printer. Z = 800: T8 screw with 8 mm lead at 1/32
-// (the owner's "400" is the same screw at 1/16). To refine: new = old x commanded / measured.
-#define DEFAULT_AXIS_STEPS_PER_UNIT   { 160, 160, 800, 186 }  // E: gearless MK8 at 1/32 (needs all 3 jumpers under the E0 driver)
+// Escaloplab: X/Y were 160 (confirmed) on DRV8825 at 1/32; on A4988 at 1/16 that halves to 80.
+// Z = 800: T8 screw with 8 mm lead at 1/32. To refine: new = old x commanded / measured.
+#define DEFAULT_AXIS_STEPS_PER_UNIT   { 80, 80, 800, 186 }  // E: gearless MK8 at 1/32 (needs all 3 jumpers under the E0 driver)
+#define ESCALOPLAB_MICROSTEP_INFO     "XY 1/16   Z+E 1/32"   // Shown on the Info screen; keep in step with the drivers
 
 /**
  * Default Max Feed Rate (linear=mm/s, rotational=°/s)
  * Override with M203
  *                                      X, Y, Z [, I [, J [, K...]]], E0 [, E1[, E2...]]
  */
-#define DEFAULT_MAX_FEEDRATE          { 200, 200, 5, 50 }   // Escaloplab: keeps the Mega under ~32k steps/s at 1/32
+#define DEFAULT_MAX_FEEDRATE          { 200, 200, 5, 50 }   // Escaloplab: X/Y 200 mm/s = 16k steps/s at 80 steps/mm (A4988, 1/16)
 
 //#define LIMITED_MAX_FR_EDITING        // Limit edit via M203 or LCD to DEFAULT_MAX_FEEDRATE * 2
 #if ENABLED(LIMITED_MAX_FR_EDITING)
@@ -2281,9 +2289,10 @@
 #define EEPROM_BOOT_SILENT    // Keep M503 quiet and only give errors during first load
 #if ENABLED(EEPROM_SETTINGS)
   #define EEPROM_AUTO_INIT    // Init EEPROM automatically on any errors.
-  #define EEPROM_INIT_NOW     // Init EEPROM on first boot after a new build.
-                              // Escaloplab: ON while the firmware is still being tuned, so every new flash starts
-                              // from the values in this file. Turn OFF later to keep M500 settings across updates.
+  //#define EEPROM_INIT_NOW   // Init EEPROM on first boot after a new build.
+                              // Escaloplab v1.7: OFF, so M500 settings (Z offset, PID, steps) survive firmware updates
+                              // over Wi-Fi. Turning it off changes the EEPROM layout, so the first v1.7 boot still
+                              // starts once from the values in this file.
 #endif
 
 // @section host

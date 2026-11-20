@@ -38,6 +38,10 @@
 
 // All displays share the MarlinUI class
 #include "marlinui.h"
+
+#if ENABLED(ESCALOPLAB_WIFI)
+  #include "menu/menu_escaloplab_wifi.h"
+#endif
 MarlinUI ui;
 
 #if HAS_DISPLAY
@@ -604,6 +608,10 @@ void MarlinUI::init() {
   #endif
 
   void MarlinUI::status_screen() {
+
+    #if ALL(ESCALOPLAB_WIFI, HAS_MARLINUI_MENU)
+      if (EscWifiUI::status_hook()) return;   // a pending firmware offer takes over the status screen
+    #endif
 
     TERN_(HAS_MARLINUI_MENU, ENCODER_RATE_MULTIPLY(false));
 

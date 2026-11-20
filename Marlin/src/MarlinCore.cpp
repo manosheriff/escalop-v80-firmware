@@ -51,6 +51,10 @@
 #include "module/stepper.h"
 #include "module/temperature.h"
 
+#if ENABLED(ESCALOPLAB_WIFI)
+  #include "feature/escaloplab_wifi.h"
+#endif
+
 #include "gcode/gcode.h"
 #include "gcode/parser.h"
 #include "gcode/queue.h"
@@ -1649,6 +1653,8 @@ void setup() {
   #endif
 
   marlin_state = MF_RUNNING;
+
+  TERN_(ESCALOPLAB_WIFI, escWifi.boot());   // '//ESC:INFO ... boot=1': serial, SD card and LCD are ready
 
   SETUP_LOG("setup() completed.");
 

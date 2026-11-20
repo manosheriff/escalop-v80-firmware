@@ -52,6 +52,10 @@
 #include "temperature.h"
 
 #include "../lcd/marlinui.h"
+
+#if ENABLED(ESCALOPLAB_WIFI)
+  #include "../feature/escaloplab_wifi.h"
+#endif
 #include "../libs/vector_3.h"   // for matrix_3x3
 #include "../gcode/gcode.h"
 #include "../MarlinCore.h"
@@ -2836,6 +2840,7 @@ void MarlinSettings::postprocess() {
       (void)save();
       SERIAL_ECHO_MSG("EEPROM Initialized");
     #endif
+    TERN_(ESCALOPLAB_WIFI, EscWifi::settings_were_reset = true);   // told to the user after a firmware update
     return false;
   }
 

@@ -71,6 +71,10 @@ GcodeSuite gcode;
 
 #include "../MarlinCore.h" // for idle, kill
 
+#if ENABLED(ESCALOPLAB_WIFI)
+  #include "../feature/escaloplab_wifi.h"
+#endif
+
 // Inactivity shutdown
 millis_t GcodeSuite::previous_move_ms = 0,
          GcodeSuite::max_inactive_time = 0;
@@ -1096,6 +1100,10 @@ void GcodeSuite::process_parsed_command(const bool no_ok/*=false*/) {
 
       #if ENABLED(HAS_MCP3426_ADC)
         case 3426: M3426(); break;                                // M3426: Read MCP3426 ADC (over i2c)
+      #endif
+
+      #if ENABLED(ESCALOPLAB_WIFI)
+        case 9100 ... 9110: escWifi.gcode(parser.codenum, parser.string_arg); break; // M9100-M9110: Escaloplab Wi-Fi (ESP-01)
       #endif
 
       default: parser.unknown_command_warning(); break;
