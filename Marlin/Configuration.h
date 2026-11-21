@@ -72,7 +72,7 @@
  *           12V PSU, MK2B heatbed + textured PEI, 20x4 Smart Controller,
  *           ESP-01 WiFi (ESP3D) on Serial3. Build volume 210 x 210 x 200.
  */
-#define ESCALOPLAB_FW_VERSION "1.7.2"   // X.Y.Z: the ESP-01 compares it numerically (release tag firmware-vX.Y.Z)
+#define ESCALOPLAB_FW_VERSION "1.7.3"   // X.Y.Z: the ESP-01 compares it numerically (release tag firmware-vX.Y.Z)
 #define DETAILED_BUILD_VERSION SHORT_BUILD_VERSION " Escaloplab-" ESCALOPLAB_FW_VERSION
 #define WEBSITE_URL "escaloplab.com"
 

@@ -447,9 +447,9 @@ void EscWifi::M9110(char *p) {
     if (card.write(xfer_buf, len) != int16_t(len)) { fail = PSTR("SDERR"); break; }
     total += len;
 
-    // Slow work only here, between packets
+    // Slow work only here, between packets (heater management at most every 100 ms: it is the slowest part)
     hal.watchdog_refresh();
-    thermalManager.task();
+    if (ELAPSED(millis(), next_temp)) { thermalManager.task(); next_temp = millis() + 100; }
     if (ELAPSED(millis(), next_lcd)) {
       EscWifiUI::transfer_progress(PSTR("Receiving over Wi-Fi"), name, total, size);
       next_lcd = millis() + 500;
