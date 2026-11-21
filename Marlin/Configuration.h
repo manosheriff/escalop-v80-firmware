@@ -72,7 +72,7 @@
  *           12V PSU, MK2B heatbed + textured PEI, 20x4 Smart Controller,
  *           ESP-01 WiFi (ESP3D) on Serial3. Build volume 210 x 210 x 200.
  */
-#define ESCALOPLAB_FW_VERSION "1.7.0"   // X.Y.Z: the ESP-01 compares it numerically (release tag firmware-v1.7.0)
+#define ESCALOPLAB_FW_VERSION "1.7.2"   // X.Y.Z: the ESP-01 compares it numerically (release tag firmware-vX.Y.Z)
 #define DETAILED_BUILD_VERSION SHORT_BUILD_VERSION " Escaloplab-" ESCALOPLAB_FW_VERSION
 #define WEBSITE_URL "escaloplab.com"
 
@@ -165,7 +165,7 @@
 // Serial3 as in the old ESP3D plan, so there is no second serial port any more.
 //#define SERIAL_PORT_2 -1
 //#define BAUDRATE_2 250000   // :[2400, 9600, 19200, 38400, 57600, 115200, 250000, 500000, 1000000] Enable to override BAUDRATE
-#define Y_STOP_PIN 2          // Y endstop switch is wired to the X-MAX plug (D2), left over from the Serial3 plan
+// Escaloplab v1.7.2: the Y endstop is on the normal Y-MIN plug (D14) on every v80; Serial3 (D14/D15) is unused.
 
 /**
  * Select a third serial port on the board to use for communication with the host.
@@ -202,8 +202,8 @@
  *          TMC5130, TMC5130_STANDALONE, TMC5160, TMC5160_STANDALONE
  * :['A4988', 'A5984', 'DRV8825', 'LV8729', 'TB6560', 'TB6600', 'TMC2100', 'TMC2130', 'TMC2130_STANDALONE', 'TMC2160', 'TMC2160_STANDALONE', 'TMC2208', 'TMC2208_STANDALONE', 'TMC2209', 'TMC2209_STANDALONE', 'TMC26X', 'TMC26X_STANDALONE', 'TMC2660', 'TMC2660_STANDALONE', 'TMC5130', 'TMC5130_STANDALONE', 'TMC5160', 'TMC5160_STANDALONE']
  */
-#define X_DRIVER_TYPE  A4988      // Escaloplab v1.6: X/Y moved to A4988 (all 3 jumpers = 1/16)
-#define Y_DRIVER_TYPE  A4988
+#define X_DRIVER_TYPE  DRV8825    // Escaloplab v1.7.2: only Y is on an A4988 (all 3 jumpers = 1/16);
+#define Y_DRIVER_TYPE  A4988      //   X, Z and E0 are DRV8825 (all 3 jumpers = 1/32)
 #define Z_DRIVER_TYPE  DRV8825    // Both Z motors share this driver (RAMPS dual Z header)
 //#define X2_DRIVER_TYPE A4988
 //#define Y2_DRIVER_TYPE A4988
@@ -1240,8 +1240,8 @@
  */
 // Escaloplab: X/Y were 160 (confirmed) on DRV8825 at 1/32; on A4988 at 1/16 that halves to 80.
 // Z = 800: T8 screw with 8 mm lead at 1/32. To refine: new = old x commanded / measured.
-#define DEFAULT_AXIS_STEPS_PER_UNIT   { 80, 80, 800, 186 }  // E: gearless MK8 at 1/32 (needs all 3 jumpers under the E0 driver)
-#define ESCALOPLAB_MICROSTEP_INFO     "XY 1/16   Z+E 1/32"   // Shown on the Info screen; keep in step with the drivers
+#define DEFAULT_AXIS_STEPS_PER_UNIT   { 160, 80, 800, 186 }  // E: gearless MK8 at 1/32 (needs all 3 jumpers under the E0 driver)
+#define ESCALOPLAB_MICROSTEP_INFO     "Y 1/16  X+Z+E 1/32"   // Shown on the Info screen; keep in step with the drivers
 
 /**
  * Default Max Feed Rate (linear=mm/s, rotational=°/s)

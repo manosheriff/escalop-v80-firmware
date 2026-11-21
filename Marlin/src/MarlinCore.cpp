@@ -1341,6 +1341,18 @@ void setup() {
   SETUP_RUN(settings.first_load());   // Load data from EEPROM if available (or use defaults)
                                       // This also updates variables in the planner, elsewhere
 
+  #if ENABLED(ESCALOPLAB_WIFI)
+    // Escaloplab: X/Y/Z steps follow the v80's drivers and jumpers, which only firmware updates change, so they
+    // always come from this firmware, not from steps saved by an older one (E steps stay as saved: people calibrate them)
+    {
+      static constexpr float dasu[] = DEFAULT_AXIS_STEPS_PER_UNIT;
+      planner.settings.axis_steps_per_mm[X_AXIS] = dasu[X_AXIS];
+      planner.settings.axis_steps_per_mm[Y_AXIS] = dasu[Y_AXIS];
+      planner.settings.axis_steps_per_mm[Z_AXIS] = dasu[Z_AXIS];
+      planner.refresh_positioning();
+    }
+  #endif
+
   #if ALL(HAS_WIRED_LCD, SHOW_BOOTSCREEN)
     SETUP_RUN(ui.show_bootscreen());
     const millis_t bootscreen_ms = millis();
