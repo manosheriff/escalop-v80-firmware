@@ -152,7 +152,7 @@ void EscWifi::send(FSTR_P const line) {
 
 void EscWifi::send_info(const bool at_boot) {
   const bool sd = IS_SD_INSERTED() && card.isMounted();
-  SERIAL_ECHOLNPGM("//ESC:INFO proto=1 model=v80 fw=" ESCALOPLAB_FW_VERSION
+  SERIAL_ECHOLNPGM("//ESC:INFO proto=1 model=v80 fw=" ESCALOPLAB_FW_VERSION " variant=" ESCALOPLAB_VARIANT
     " sd=", int(sd), " printing=", int(is_printing()), " busy=", int(is_busy()), " boot=", int(at_boot));
 }
 

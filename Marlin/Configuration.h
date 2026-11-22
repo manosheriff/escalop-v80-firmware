@@ -73,6 +73,7 @@
  *           ESP-01 WiFi (ESP3D) on Serial3. Build volume 210 x 210 x 200.
  */
 #define ESCALOPLAB_FW_VERSION "1.7.4"   // X.Y.Z: the ESP-01 compares it numerically (release tag firmware-vX.Y.Z)
+#define ESCALOPLAB_VARIANT    ""        // "" = standard v80; a variant build sets its name (escaloplab/variants)
 #define DETAILED_BUILD_VERSION SHORT_BUILD_VERSION " Escaloplab-" ESCALOPLAB_FW_VERSION
 #define WEBSITE_URL "escaloplab.com"
 
@@ -1239,8 +1240,9 @@
  *                                      X, Y, Z [, I [, J [, K...]]], E0 [, E1[, E2...]]
  */
 // Escaloplab: X/Y were 160 (confirmed) on DRV8825 at 1/32; on A4988 at 1/16 that halves to 80.
-// Z = 640 at 1/32 (was 800, which printed a 20 mm cube 25 mm tall). To refine: new = old x commanded / measured.
-#define DEFAULT_AXIS_STEPS_PER_UNIT   { 160, 80, 640, 186 }  // Z 640: measured on a 20 mm cube (800 printed 25 mm). E: gearless MK8 at 1/32 (needs all 3 jumpers under the E0 driver)
+// Z = 800: T8 screw with 8 mm lead at 1/32. To refine: new = old x commanded / measured.
+// A printer that differs gets its own file in escaloplab/printers (e.g. 00003.h).
+#define DEFAULT_AXIS_STEPS_PER_UNIT   { 160, 80, 800, 186 }  // E: gearless MK8 at 1/32 (needs all 3 jumpers under the E0 driver)
 #define ESCALOPLAB_MICROSTEP_INFO     "Y 1/16  X+Z+E 1/32"   // Shown on the Info screen; keep in step with the drivers
 
 /**
@@ -3486,3 +3488,11 @@
 
 // Disable servo with M282 to reduce power consumption, noise, and heat when not in use
 //#define SERVO_DETACH_GCODE
+
+// Escaloplab: printer variant (escaloplab/variants/README.md). escaloplab/build_variants.py writes
+// Marlin/escalop_variant.h before each build; its settings replace the ones above. No file = the standard v80.
+#if __has_include("escalop_variant.h")
+  #define ESCALOP_VARIANT_STAGE 1
+  #include "escalop_variant.h"
+  #undef ESCALOP_VARIANT_STAGE
+#endif

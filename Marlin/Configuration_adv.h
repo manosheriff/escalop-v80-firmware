@@ -4271,3 +4271,11 @@
 
 // Report uncleaned reset reason from register r2 instead of MCUSR. Supported by Optiboot on AVR.
 //#define OPTIBOOT_RESET_REASON
+
+// Escaloplab: printer variant (escaloplab/variants/README.md). escaloplab/build_variants.py writes
+// Marlin/escalop_variant.h before each build; its settings replace the ones above. No file = the standard v80.
+#if __has_include("escalop_variant.h")
+  #define ESCALOP_VARIANT_STAGE 2
+  #include "escalop_variant.h"
+  #undef ESCALOP_VARIANT_STAGE
+#endif

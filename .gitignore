@@ -173,3 +173,8 @@ tags
 !.aiderignore
 .env
 sqlite*.db
+
+# Escaloplab variant builds
+Marlin/escalop_variant.h
+escaloplab/out/
+escaloplab/__pycache__/
