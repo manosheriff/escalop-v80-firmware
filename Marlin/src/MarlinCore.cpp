@@ -491,7 +491,17 @@ inline void manage_inactivity(const bool no_stepper_sleep=false) {
       SERIAL_ERROR_START();
       SERIAL_ECHOPGM(STR_KILL_PRE);
       SERIAL_ECHOLNPGM(STR_KILL_BUTTON);
-      kill();
+      #if ENABLED(ESCALOPLAB_KILL_RESTARTS)
+        // Escaloplab: stop everything and restart the board (the print, if any, ends)
+        thermalManager.disable_all_heaters();
+        stepper.disable_all_steppers();
+        TERN_(HAS_DISPLAY, ui.kill_screen(F("Restarting..."), FPSTR(NUL_STR)));
+        while (kill_state()) hal.watchdog_refresh();      // not while held: it would restart again and again
+        for (uint8_t i = 50; i--;) { hal.watchdog_refresh(); delay(10); }  // let the line above reach the Wi-Fi module
+        hal.reboot();
+      #else
+        kill();
+      #endif
     }
   #endif
 

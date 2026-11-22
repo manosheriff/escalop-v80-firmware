@@ -484,6 +484,7 @@ namespace EscWifiUI {
   }
 
   static void accept_offer() {
+    if (escWifi.is_printing()) return show_message(PSTR("Finish the print first, then update from Menu > Firmware"), nullptr, A_STATUS);
     escWifi.send(F("UPDATE"));
     seen_stage = escWifi.stage_seq;
     ui.goto_screen(screen_updating);
