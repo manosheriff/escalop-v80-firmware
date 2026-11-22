@@ -19,13 +19,15 @@ variant escaloplab.com assigns to it (Admin > Printer units), else the variant i
 
 Names: lowercase letters, digits and `-`, at most 16 characters. The file is included twice: at the end of
 `Configuration.h` (`ESCALOP_VARIANT_STAGE == 1`) and at the end of `Configuration_adv.h` (stage 2). Replace a setting
-with `#undef` + `#define`. Set `ESCALOPLAB_VARIANT` last, after any `#include`:
+with `#undef` + `#define`. Set `ESCALOPLAB_VARIANT` and `ESCALOPLAB_VARIANT_LABEL` last, after any `#include`:
 
 ```c
 #include "parts/bed300.h"
 #if ESCALOP_VARIANT_STAGE == 1
   #undef ESCALOPLAB_VARIANT
   #define ESCALOPLAB_VARIANT "300-bowden"
+  #undef ESCALOPLAB_VARIANT_LABEL
+  #define ESCALOPLAB_VARIANT_LABEL " (300-bowden)"   // shown by M115
 #endif
 ```
 

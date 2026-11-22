@@ -74,7 +74,8 @@
  */
 #define ESCALOPLAB_FW_VERSION "1.7.4"   // X.Y.Z: the ESP-01 compares it numerically (release tag firmware-vX.Y.Z)
 #define ESCALOPLAB_VARIANT    ""        // "" = standard v80; a variant build sets its name (escaloplab/variants)
-#define DETAILED_BUILD_VERSION SHORT_BUILD_VERSION " Escaloplab-" ESCALOPLAB_FW_VERSION
+#define ESCALOPLAB_VARIANT_LABEL ""     // " (300-bowden)" in a variant build: M115 shows it, Escalop Workshop reads it
+#define DETAILED_BUILD_VERSION SHORT_BUILD_VERSION " Escaloplab-" ESCALOPLAB_FW_VERSION ESCALOPLAB_VARIANT_LABEL
 #define WEBSITE_URL "escaloplab.com"
 
 // Animated Escaloplab logo on the 20x4 LCD at power-on (marlinui_HD44780.cpp).
