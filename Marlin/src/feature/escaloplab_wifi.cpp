@@ -386,7 +386,7 @@ void EscWifi::M9110(char *p) {
   card.cdroot();                                        // the ESP-01 starts the print with 'M23 <name>'
   card.removeFile(name);
   card.openFileWrite(name);                             // also turns the emergency parser off
-  if (!card.isFileOpen()) { SERIAL_ECHOLNPGM("#X SDERR"); return; }
+  if (!card.isFileOpen()) { card.removeFile(name); SERIAL_ECHOLNPGM("#X SDERR"); return; } // the entry may exist, empty
   TERN_(EMERGENCY_PARSER, emergency_parser.disable());  // binary data may contain "M112"
 
   EscWifiUI::transfer_progress(PSTR("Receiving over Wi-Fi"), name, 0, size);
