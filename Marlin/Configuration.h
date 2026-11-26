@@ -72,7 +72,7 @@
  *           12V PSU, MK2B heatbed + textured PEI, 20x4 Smart Controller,
  *           ESP-01 WiFi (ESP3D) on Serial3. Build volume 210 x 210 x 200.
  */
-#define ESCALOPLAB_FW_VERSION "1.7.6"   // X.Y.Z: the ESP-01 compares it numerically (release tag firmware-vX.Y.Z)
+#define ESCALOPLAB_FW_VERSION "1.7.7"   // X.Y.Z: the ESP-01 compares it numerically (release tag firmware-vX.Y.Z)
 #define ESCALOPLAB_VARIANT    ""        // "" = standard v80; a variant build sets its name (escaloplab/variants)
 #define ESCALOPLAB_VARIANT_LABEL ""     // " (300-bowden)" in a variant build: M115 shows it, Escalop Workshop reads it
 #define DETAILED_BUILD_VERSION SHORT_BUILD_VERSION " Escaloplab-" ESCALOPLAB_FW_VERSION ESCALOPLAB_VARIANT_LABEL
