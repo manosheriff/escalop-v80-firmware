@@ -553,10 +553,12 @@ namespace EscWifiUI {
   }
 
   void draw_installing() {
+    // The board restarts into its bootloader to install: nothing drives the screen until the new firmware starts,
+    // so it keeps this text or shows blocks. Say so beforehand.
     row_P(0, PSTR("Installing firmware"));
-    row_P(1, PSTR("Don't turn off"));
-    row_P(2, PSTR("the printer"));
-    row(3, nullptr);
+    row_P(1, PSTR("Screen may go blank"));
+    row_P(2, PSTR("for about 1 minute"));
+    row_P(3, PSTR("Don't turn off"));
   }
 
   static void screen_installing() {
