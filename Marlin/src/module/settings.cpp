@@ -1799,7 +1799,7 @@ void MarlinSettings::postprocess() {
         if (!validating) LOOP_DISTINCT_AXES(i) {
           const bool in = (i < e_factors + NUM_AXES);
           planner.settings.max_acceleration_mm_per_s2[i] = in ? tmp1[i] : pgm_read_dword(&_DMA[ALIM(i, _DMA)]);
-          planner.settings.axis_steps_per_mm[i]          = in ? tmp2[i] : pgm_read_float(&_DASU[ALIM(i, _DASU)]);
+          planner.settings.axis_steps_per_mm[i]          = in && DISABLED(ESCALOP_FIRMWARE_STEPS) ? tmp2[i] : pgm_read_float(&_DASU[ALIM(i, _DASU)]);  // ESCALOP_FIRMWARE_STEPS: a printer file's steps win over saved ones
           planner.settings.max_feedrate_mm_s[i]          = in ? tmp3[i] : pgm_read_float(&_DMF[ALIM(i, _DMF)]);
         }
 
