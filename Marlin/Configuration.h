@@ -66,13 +66,13 @@
 
 /**
  * ==================== ESCALOPLAB ====================
- * Hardware: Arduino Mega 2560 + RAMPS 1.4, 4x DRV8825 (1/32, all jumpers in),
+ * Hardware: Arduino Mega 2560 + RAMPS 1.4, 4x A4988 (1/16, all jumpers in; DRV8825 at 1/32 before 1.8.0),
  *           2x Z motors in parallel on the Z driver, T8x2 lead screws,
  *           MK8 Bowden extruder, Stealthburner carriage with E3D V6,
  *           12V PSU, MK2B heatbed + textured PEI, 20x4 Smart Controller,
  *           ESP-01 WiFi (ESP3D) on Serial3. Build volume 210 x 210 x 200.
  */
-#define ESCALOPLAB_FW_VERSION "1.7.9"   // X.Y.Z: the ESP-01 compares it numerically (release tag firmware-vX.Y.Z)
+#define ESCALOPLAB_FW_VERSION "1.8.0"   // X.Y.Z: the ESP-01 compares it numerically (release tag firmware-vX.Y.Z)
 #define ESCALOPLAB_VARIANT    ""        // "" = standard v80; a variant build sets its name (escaloplab/variants)
 #define ESCALOPLAB_VARIANT_LABEL ""     // " (300-bowden)" in a variant build: M115 shows it, Escalop Workshop reads it
 #define DETAILED_BUILD_VERSION SHORT_BUILD_VERSION " Escaloplab-" ESCALOPLAB_FW_VERSION ESCALOPLAB_VARIANT_LABEL
@@ -98,7 +98,7 @@
 // stock "About Printer" menus. Turn the dial to flip cards, click to leave.
 #define ESCALOPLAB_INFO_SCREEN
 
-// Quiet idle: DRV8825 drivers hiss and tick while they hold a motor still.
+// Quiet idle: stepper drivers hiss and tick while they hold a motor still.
 // Motors are released after DEFAULT_STEPPER_TIMEOUT_SEC of standstill (Configuration_adv.h),
 // but never in the middle of a print job (e.g. while waiting for the nozzle to heat).
 #define ESCALOPLAB_QUIET_IDLE
@@ -208,9 +208,9 @@
  *          TMC5130, TMC5130_STANDALONE, TMC5160, TMC5160_STANDALONE
  * :['A4988', 'A5984', 'DRV8825', 'LV8729', 'TB6560', 'TB6600', 'TMC2100', 'TMC2130', 'TMC2130_STANDALONE', 'TMC2160', 'TMC2160_STANDALONE', 'TMC2208', 'TMC2208_STANDALONE', 'TMC2209', 'TMC2209_STANDALONE', 'TMC26X', 'TMC26X_STANDALONE', 'TMC2660', 'TMC2660_STANDALONE', 'TMC5130', 'TMC5130_STANDALONE', 'TMC5160', 'TMC5160_STANDALONE']
  */
-#define X_DRIVER_TYPE  DRV8825    // Escaloplab v1.7.2: only Y is on an A4988 (all 3 jumpers = 1/16);
-#define Y_DRIVER_TYPE  A4988      //   X, Z and E0 are DRV8825 (all 3 jumpers = 1/32)
-#define Z_DRIVER_TYPE  DRV8825    // Both Z motors share this driver (RAMPS dual Z header)
+#define X_DRIVER_TYPE  A4988      // Escaloplab v1.8.0: every axis is on an A4988 (all 3 jumpers = 1/16).
+#define Y_DRIVER_TYPE  A4988      //   (Before 1.8.0 X, Z and E0 were DRV8825 at 1/32.)
+#define Z_DRIVER_TYPE  A4988      // Both Z motors share this driver (RAMPS dual Z header)
 //#define X2_DRIVER_TYPE A4988
 //#define Y2_DRIVER_TYPE A4988
 //#define Z2_DRIVER_TYPE A4988
@@ -222,7 +222,7 @@
 //#define U_DRIVER_TYPE  A4988
 //#define V_DRIVER_TYPE  A4988
 //#define W_DRIVER_TYPE  A4988
-#define E0_DRIVER_TYPE DRV8825
+#define E0_DRIVER_TYPE A4988
 //#define E1_DRIVER_TYPE A4988
 //#define E2_DRIVER_TYPE A4988
 //#define E3_DRIVER_TYPE A4988
@@ -1245,10 +1245,13 @@
  *                                      X, Y, Z [, I [, J [, K...]]], E0 [, E1[, E2...]]
  */
 // Escaloplab: X/Y were 160 (confirmed) on DRV8825 at 1/32; on A4988 at 1/16 that halves to 80.
-// Z = 800: T8 screw with 8 mm lead at 1/32. To refine: new = old x commanded / measured.
+// Z: T8 screw with 8 mm lead, 800 at 1/32 -> 400 at 1/16. E: 186 at 1/32 -> 93. To refine: new = old x commanded / measured.
 // A printer that differs gets its own file in escaloplab/printers (e.g. 00003.h).
-#define DEFAULT_AXIS_STEPS_PER_UNIT   { 160, 80, 800, 186 }  // E: gearless MK8 at 1/32 (needs all 3 jumpers under the E0 driver)
-#define ESCALOPLAB_MICROSTEP_INFO     "Y 1/16  X+Z+E 1/32"   // Shown on the Info screen; keep in step with the drivers
+#define DEFAULT_AXIS_STEPS_PER_UNIT   { 80, 80, 400, 93 }  // All A4988 at 1/16: GT2 20T belts 80, T8 lead screw 400, gearless MK8 93
+#define ESCALOPLAB_MICROSTEP_INFO     "X Y Z E  1/16 A4988"   // Shown on the Info screen; keep in step with the drivers
+// 1.8.0 halved every step value (DRV8825 1/32 -> A4988 1/16). Printers keep their old steps in their saved
+// settings, which would win and make every move twice too long, so the firmware's steps always win now.
+#define ESCALOP_FIRMWARE_STEPS
 
 /**
  * Default Max Feed Rate (linear=mm/s, rotational=°/s)
